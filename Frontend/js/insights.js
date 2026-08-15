@@ -68,7 +68,7 @@ document.addEventListener('DOMContentLoaded', () => {
 
   function fmtDay(iso) {
     if (!iso) return '';
-    const [y, m, d] = String(iso).substring(0, 10).split('-');
+    const [, m, d] = String(iso).substring(0, 10).split('-');
     if (!m || !d) return iso;
     return `${parseInt(d, 10)} ${MONTHS[parseInt(m, 10) - 1]}`;
   }

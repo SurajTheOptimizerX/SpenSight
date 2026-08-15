@@ -1398,7 +1398,7 @@ document.addEventListener('DOMContentLoaded', () => {
       const chatTimeout = setTimeout(() => controller.abort(), 60000);
 
       const streamPrompt = async () => {
-        const response = await fetch('/api/ai/chat', {
+        const response = await fetch(`${window.SPENSIGHT_API_BASE || '/api'}/ai/chat`, {
           method: 'POST',
           headers: {
             'Content-Type': 'application/json',
@@ -1418,6 +1418,7 @@ document.addEventListener('DOMContentLoaded', () => {
         const decoder = new TextDecoder();
         let buffer = '';
 
+        // eslint-disable-next-line no-constant-condition
         while (true) {
           const { done, value } = await reader.read();
           if (done) break;

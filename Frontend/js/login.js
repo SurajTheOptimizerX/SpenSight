@@ -1,5 +1,3 @@
-import { apiRequest } from './api.js';
-
 document.addEventListener('DOMContentLoaded', () => {
   document.querySelectorAll('[data-icon]').forEach((el) => {
     el.innerHTML = SpenIcons.icon(el.getAttribute('data-icon'));

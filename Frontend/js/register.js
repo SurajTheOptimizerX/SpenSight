@@ -62,7 +62,7 @@ document.addEventListener('DOMContentLoaded', () => {
     setLoading(true);
 
     try {
-      const data = await apiRequest('/auth/register', 'POST', { name, email, password }, true);
+      const data = await apiRequest('/auth/register', 'POST', { name, email, password }, false);
 
       localStorage.setItem('spensight_token', data.token);
       localStorage.setItem('spensight_user', JSON.stringify(data.user));

@@ -9,6 +9,17 @@
     "ecmaVersion": "latest",
     "sourceType": "script"
   },
+  "globals": {
+    "SpenIcons": "readonly",
+    "Chart": "readonly",
+    "html2pdf": "readonly",
+    "apiRequest": "readonly",
+    "apiUpload": "readonly",
+    "getToken": "readonly",
+    "getStoredUser": "readonly",
+    "authAPI": "readonly",
+    "dataAPI": "readonly"
+  },
   "rules": {
     "no-unused-vars": "warn",
     "no-console": "off"
