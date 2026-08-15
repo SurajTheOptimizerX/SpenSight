@@ -64,32 +64,38 @@ document.addEventListener('DOMContentLoaded', () => {
     try {
       const data = await apiRequest('/auth/register', 'POST', { name, email, password }, false);
 
-      if (data && data.requiresVerification) {
-        const registerFormEl = document.getElementById('registerForm');
-        const successEl = document.getElementById('registerSuccess');
-        if (registerFormEl) registerFormEl.style.display = 'none';
-        if (successEl) {
-          if (data.testMode) {
-            const heading = successEl.querySelector('h2');
-            const text = successEl.querySelector('p');
-            if (heading) heading.textContent = 'Account created!';
-            if (text) {
-              text.textContent =
-                'Test Mode: Check the backend console for your verification link, or register with the account owner email.';
-            }
-          }
-          successEl.style.display = 'block';
-        }
-        return;
-      }
+      // Email verification is TEMPORARILY disabled (backend auto-verifies on
+      // signup), so registration succeeds immediately. The "Check your inbox"
+      // / "Test Mode" screens below are disabled along with it.
+      //
+      // Re-enabling verification: set EMAIL_VERIFICATION_ENABLED=true on the
+      // backend (with a verified sender domain) and restore the block below:
+      //
+      //   if (data && data.requiresVerification) {
+      //     const registerFormEl = document.getElementById('registerForm');
+      //     const successEl = document.getElementById('registerSuccess');
+      //     if (registerFormEl) registerFormEl.style.display = 'none';
+      //     if (successEl) {
+      //       if (data.testMode) {
+      //         const heading = successEl.querySelector('h2');
+      //         const text = successEl.querySelector('p');
+      //         if (heading) heading.textContent = 'Account created!';
+      //         if (text) {
+      //           text.textContent =
+      //             'Test Mode: Check the backend console for your verification link, or register with the account owner email.';
+      //         }
+      //       }
+      //       successEl.style.display = 'block';
+      //     }
+      //     return;
+      //   }
 
-      localStorage.setItem('spensight_token', data.token);
-      localStorage.setItem('spensight_user', JSON.stringify(data.user));
-
+      localStorage.removeItem('spensight_token');
+      localStorage.removeItem('spensight_user');
       showToast('Account created successfully!', 'success');
       setTimeout(() => {
-        window.location.href = 'dashboard.html';
-      }, 600);
+        window.location.href = 'login.html';
+      }, 700);
     } catch (error) {
       showToast(error.detail || error.message || 'Registration failed. Please try again.');
     } finally {
