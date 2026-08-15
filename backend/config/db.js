@@ -16,6 +16,8 @@ const poolConfig = connectionString
       max: 20,
       idleTimeoutMillis: 30000,
       connectionTimeoutMillis: 10000,
+      statement_timeout: 15000,
+      query_timeout: 20000,
     }
   : {
       // Local development fallback
@@ -27,6 +29,8 @@ const poolConfig = connectionString
       max: 20,
       idleTimeoutMillis: 30000,
       connectionTimeoutMillis: 5000,
+      statement_timeout: 15000,
+      query_timeout: 20000,
     };
 
 const dbPool = new Pool(poolConfig);

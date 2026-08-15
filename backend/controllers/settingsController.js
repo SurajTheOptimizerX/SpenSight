@@ -48,20 +48,21 @@ const testMailSettings = async (req, res) => {
       return res.status(400).json({ error: 'A recipient email address is required.' });
     }
 
-    if (!mailSettingsService.smtpConfigured(settings)) {
+    const transportReady = Boolean(process.env.RESEND_API_KEY) || mailSettingsService.smtpConfigured(settings);
+    if (!transportReady) {
       return res.status(400).json({
-        error: 'SMTP is not configured. Provide an SMTP host and username (and password) and save first.',
+        error: 'Email is not configured. Set RESEND_API_KEY or provide SMTP host and username (and password) and save first.',
       });
     }
 
     const result = await sendMail({
       to,
       subject: `Test email from ${settings.appName}`,
-      text: 'This is a test email from SpenSight. Your SMTP configuration is working.',
+      text: 'This is a test email from SpenSight. Your email configuration is working.',
       html: `<div style="font-family:Arial,sans-serif;background:#0b1220;padding:24px;color:#e2e8f0;">
         <div style="max-width:480px;margin:0 auto;background:#111827;border:1px solid rgba(255,255,255,0.08);border-radius:14px;padding:28px;">
           <h1 style="margin:0 0 6px;font-size:20px;color:#fff;">${settings.appName}</h1>
-          <p style="margin:0;font-size:14px;color:#94a3b8;">This is a test email. Your SMTP configuration is working.</p>
+          <p style="margin:0;font-size:14px;color:#94a3b8;">This is a test email. Your email configuration is working.</p>
         </div>
       </div>`,
       fromOverride: settings.from,

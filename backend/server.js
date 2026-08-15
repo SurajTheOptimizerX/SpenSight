@@ -1,11 +1,13 @@
 const express = require('express');
+const helmet = require('helmet');
 const cors = require('cors');
 const path = require('path');
 // Loads & validates env config (throws at startup if JWT_SECRET is missing)
 const { ALLOWED_ORIGINS } = require('./config/env');
+const db = require('./config/db');
 
 // Activate BullMQ background queue worker
-require('./workers/csvWorker');
+const csvWorker = require('./workers/csvWorker');
 
 // Apply idempotent schema migrations on boot (safe if the DB is unavailable)
 const { runMigrations } = require('./config/migrate');
@@ -14,6 +16,15 @@ runMigrations();
 const app = express();
 const ROOT_DIR = path.join(__dirname, '..');
 app.set('ROOT_DIR', ROOT_DIR);
+
+// Trust the first proxy hop so rate-limiters see the real client IP
+// (e.g. Render's reverse proxy). Must precede any rate-limit middleware.
+app.set('trust proxy', 1);
+
+// Security headers. CSP is disabled because the static frontend relies on
+// inline scripts/styles; the rest (X-Content-Type-Options, X-Frame-Options,
+// HSTS, Referrer-Policy, COOP) still apply.
+app.use(helmet({ contentSecurityPolicy: false }));
 
 // Clean and sanitize ALLOWED_ORIGINS array to handle potential whitespace or markdown artifacts
 const cleanAllowedOrigins = (Array.isArray(ALLOWED_ORIGINS) ? ALLOWED_ORIGINS : ALLOWED_ORIGINS.split(','))
@@ -73,7 +84,48 @@ app.use(notFoundMiddleware);
 app.use(errorMiddleware);
 
 const PORT = process.env.PORT || 5000;
-app.listen(PORT, '0.0.0.0', () => {
+const server = app.listen(PORT, '0.0.0.0', () => {
   console.log(`SpenSight server running on port ${PORT}`);
   console.log(`CORS allowed origins: ${cleanAllowedOrigins.join(', ')}`);
 });
+
+// Graceful shutdown: stop accepting connections, let in-flight HTTP requests
+// finish, drain the BullMQ worker, then close the DB pool before exiting.
+const gracefulShutdown = (signal) => {
+  console.log(`[Server] Received ${signal}. Closing server and database pool...`);
+
+  // Safety net: never let a hung close keep the process alive past the
+  // platform's grace period (Render/K8s send SIGKILL after ~30s anyway).
+  const forceExit = setTimeout(() => {
+    console.error('[Server] Forced exit after shutdown timeout.');
+    process.exit(1);
+  }, 20000);
+  forceExit.unref();
+
+  server.close(async () => {
+    try {
+      if (csvWorker && typeof csvWorker.close === 'function') {
+        await csvWorker.close();
+        console.log('[Worker] BullMQ worker closed.');
+      }
+    } catch (err) {
+      console.error('[Worker] Error closing BullMQ worker:', err);
+    }
+
+    try {
+      if (db.pool && typeof db.pool.end === 'function') {
+        await db.pool.end();
+        console.log('[Database] Pool closed successfully.');
+      }
+      clearTimeout(forceExit);
+      process.exit(0);
+    } catch (err) {
+      console.error('[Database] Error closing pool during shutdown:', err);
+      clearTimeout(forceExit);
+      process.exit(1);
+    }
+  });
+};
+
+process.on('SIGTERM', () => gracefulShutdown('SIGTERM'));
+process.on('SIGINT', () => gracefulShutdown('SIGINT'));

@@ -21,22 +21,15 @@ document.addEventListener('DOMContentLoaded', () => {
   const token = params.get('token') || '';
 
   if (!token) {
-    showResult('Invalid link', 'No verification token was provided. Please check the link from your email.');
+    showResult('Invalid link', 'Invalid or expired verification link.');
     return;
   }
 
   apiRequest(`/auth/verify?token=${encodeURIComponent(token)}`, 'GET', null, false)
     .then((data) => {
-      showResult(
-        'Email verified!',
-        (data && data.message) || 'Your email has been verified. You can now log in to SpenSight.',
-        'CircleCheck'
-      );
+      showResult('Email verified!', (data && data.message) || 'Email verified successfully!', 'CircleCheck');
     })
     .catch((error) => {
-      showResult(
-        'Verification failed',
-        error.message || 'This verification link is invalid or has expired. Please register again or contact support.'
-      );
+      showResult('Verification failed', error.message || 'Invalid or expired verification link.');
     });
 });

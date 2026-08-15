@@ -7,10 +7,19 @@ const errorMiddleware = (err, req, res, next) => {
     return res.status(413).json({ error: 'Request payload too large.' });
   }
 
-  console.error('Unhandled Error:', err);
-  return res.status(err.status || 500).json({
-    error: err.message || 'Internal server error.',
-  });
+  if (err.name === 'MulterError') {
+    if (err.code === 'LIMIT_FILE_SIZE') {
+      return res.status(413).json({ error: 'File is too large. Maximum size is 10MB.' });
+    }
+    return res.status(400).json({ error: err.message || 'Upload failed.' });
+  }
+
+  const status = err.status || 500;
+  if (status >= 500) {
+    console.error('Unhandled Error:', err);
+    return res.status(status).json({ error: 'Internal server error.' });
+  }
+  return res.status(status).json({ error: err.message || 'Request failed.' });
 };
 
 const notFoundMiddleware = (req, res, next) => {

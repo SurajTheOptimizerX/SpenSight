@@ -1,10 +1,12 @@
 const nodemailer = require('nodemailer');
 const mailSettingsService = require('./mailSettingsService');
 
-// Outbound mail wrapper for email verification. SMTP credentials come from
-// the DB-backed admin mail settings (merged over env defaults). When no SMTP
-// is configured, falls back to logging the verification link to the server
-// console so local / preview flows stay testable without a real mail server.
+// Outbound mail wrapper for email verification. When RESEND_API_KEY is set,
+// sends via the Resend SDK (mailSettingsService.sendMail). Otherwise falls
+// back to SMTP (credentials from the DB-backed admin mail settings merged
+// over env defaults) and, when no SMTP is configured either, logs the
+// verification link to the server console so local / preview flows stay
+// testable without a real mail server.
 
 let transporterCache = null;
 function getTransporter(settings) {
@@ -25,6 +27,15 @@ function resetTransporter() {
 
 async function sendMail({ to, subject, text, html, fromOverride }) {
   const settings = await mailSettingsService.getEffectiveSettings();
+
+  if (process.env.RESEND_API_KEY) {
+    try {
+      return await mailSettingsService.sendMail({ to, subject, html });
+    } catch (error) {
+      console.error('[Mail:error] Failed to send email:', error.message);
+      throw error;
+    }
+  }
 
   if (!mailSettingsService.smtpConfigured(settings)) {
     console.log(`\n[Mail:dev-fallback] To: ${to}\n[Mail:dev-fallback] Subject: ${subject}\n[Mail:dev-fallback] Body:\n${text}\n`);
@@ -69,7 +80,7 @@ async function sendVerificationEmail({ to, token }) {
       <p style="margin:0 0 18px; font-size:14px; color:#94a3b8;">Confirm your email to activate your account.</p>
       <a href="${verificationUrl}"
          style="display:inline-block; background:#3b82f6; color:#ffffff; text-decoration:none; font-weight:700; font-size:14px; padding:12px 22px; border-radius:10px;">
-        Verify Email Address
+        Verify My Email
       </a>
       <p style="margin:20px 0 0; font-size:13px; color:#94a3b8; word-break:break-all;">
         Or copy this link into your browser:<br/><a href="${verificationUrl}" style="color:#60a5fa;">${verificationUrl}</a>

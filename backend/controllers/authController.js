@@ -17,6 +17,10 @@ const register = async (req, res) => {
       return res.status(400).json({ error: 'Email and password are required.' });
     }
 
+    if (String(password).length < 6) {
+      return res.status(400).json({ error: 'Password must be at least 6 characters.' });
+    }
+
     const normalizedEmail = String(email).trim().toLowerCase();
 
     const userCheck = await db.query('SELECT id FROM users WHERE email = $1', [normalizedEmail]);
@@ -24,7 +28,7 @@ const register = async (req, res) => {
       return res.status(400).json({ error: 'User with this email already exists.' });
     }
 
-    const salt = await bcrypt.genSalt(10);
+    const salt = await bcrypt.genSalt(12);
     const password_hash = await bcrypt.hash(password, salt);
 
     const verification_token = crypto.randomBytes(32).toString('hex');
@@ -51,7 +55,7 @@ const register = async (req, res) => {
     });
   } catch (error) {
     console.error('Registration Error Details:', error);
-    return res.status(500).json({ error: error.message || 'Registration failed.' });
+    return res.status(500).json({ error: 'Registration failed.' });
   }
 };
 
@@ -73,7 +77,7 @@ const login = async (req, res) => {
     }
 
     if (!user.is_verified) {
-      return res.status(403).json({ error: 'Please verify your email address before logging in.' });
+      return res.status(403).json({ error: 'Your email is not verified. Please check your inbox for the activation link.' });
     }
 
     const token = jwt.sign({ id: user.id, email: user.email }, JWT_SECRET, { expiresIn: '24h' });
@@ -115,7 +119,7 @@ const verifyEmail = async (req, res) => {
       [result.rows[0].id]
     );
 
-    return res.json({ message: 'Email verified successfully. You can now log in.' });
+    return res.json({ success: true, message: 'Email verified successfully!' });
   } catch (error) {
     console.error('Verify Email Error:', error);
     return res.status(500).json({ error: 'Failed to verify email.' });

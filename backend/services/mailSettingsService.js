@@ -1,10 +1,21 @@
 const crypto = require('crypto');
+const { Resend } = require('resend');
 const db = require('../config/db');
 const { JWT_SECRET } = require('../config/env');
 
 // Mail settings stored in the DB (admin page) merged over environment
 // defaults. The SMTP password is stored AES-256-GCM encrypted with a key
 // derived from JWT_SECRET and is never returned by the API.
+
+// Resend SDK transport — initialized lazily so the module loads even when
+// RESEND_API_KEY is absent (the SDK throws if constructed with no key).
+let resend = null;
+function getResend() {
+  if (!resend) {
+    resend = new Resend(process.env.RESEND_API_KEY);
+  }
+  return resend;
+}
 
 const KEY = crypto.createHash('sha256').update(String(JWT_SECRET)).digest();
 
@@ -13,7 +24,7 @@ const ENV_DEFAULTS = {
   port: parseInt(process.env.SMTP_PORT || '587', 10),
   user: process.env.SMTP_USER || '',
   pass: process.env.SMTP_PASS || '',
-  from: process.env.MAIL_FROM || 'SpenSight <noreply@spensight.app>',
+  from: process.env.MAIL_FROM || 'SpenSight <onboarding@resend.dev>',
   appName: process.env.APP_NAME || 'SpenSight',
   verifyPageUrl: (process.env.VERIFY_PAGE_URL || 'https://spensight.netlify.app').replace(/\/+$/, ''),
 };
@@ -143,10 +154,34 @@ function toApiShape(settings) {
   };
 }
 
+// Resend SDK email dispatch. Throws on API/network failure so callers can
+// decide how to surface it; returns `{ success: true, data }` on dispatch.
+async function sendMail({ to, subject, html }) {
+  const settings = await getEffectiveSettings();
+  const sender = settings.from || 'SpenSight <onboarding@resend.dev>';
+  const recipients = Array.isArray(to) ? to : [to];
+
+  const { data, error } = await getResend().emails.send({
+    from: sender,
+    to: recipients,
+    subject,
+    html,
+  });
+
+  if (error) {
+    console.error('Failed to send verification email via Resend:', error.message || error);
+    throw new Error(error.message || 'Resend send failed.');
+  }
+
+  console.log(`[Mail:resend] ${data && data.id ? data.id : 'sent'} -> ${recipients.join(', ')}`);
+  return { success: true, data };
+}
+
 module.exports = {
   getEffectiveSettings,
   saveSettings,
   smtpConfigured,
   toApiShape,
   invalidateCache,
+  sendMail,
 };
