@@ -1,11 +1,10 @@
 // SpenSight API client.
-// Loaded as a classic <script> BEFORE the page controller so its globals are
-// available everywhere. backend/server.js serves Frontend/ statically and mounts
-// /api/* on the same origin, so requests default to relative '/api'.
-// For a static-hosted frontend, override before this script loads:
-//   <script>window.SPENSIGHT_API_BASE = 'https://example.com/api';</script>
-
-const API_BASE_URL = window.SPENSIGHT_API_BASE || '/api';
+// Dynamically resolves to local server or live Render backend depending on environment host.
+const API_BASE_URL = window.SPENSIGHT_API_BASE || (
+  window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1'
+    ? 'http://localhost:5000/api'
+    : 'https://spensight.onrender.com/api'
+);
 
 // ---------- Token / session helpers ----------
 function getToken() {
