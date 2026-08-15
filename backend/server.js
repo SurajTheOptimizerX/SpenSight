@@ -11,12 +11,17 @@ const app = express();
 const ROOT_DIR = path.join(__dirname, '..');
 app.set('ROOT_DIR', ROOT_DIR);
 
+// Clean and sanitize ALLOWED_ORIGINS array to handle potential whitespace or markdown artifacts
+const cleanAllowedOrigins = (Array.isArray(ALLOWED_ORIGINS) ? ALLOWED_ORIGINS : ALLOWED_ORIGINS.split(','))
+  .map(url => url.replace(/\[|\]|\(.*\)/g, '').trim())
+  .filter(Boolean);
+
 // Restrictive CORS: only allow requests from explicitly configured origins.
 // Same-origin requests (frontend served by this Express server) are always allowed.
 app.use(
   cors({
     origin(origin, callback) {
-      if (!origin || ALLOWED_ORIGINS.includes(origin)) {
+      if (!origin || cleanAllowedOrigins.includes(origin)) {
         return callback(null, true);
       }
       const error = new Error(`Origin "${origin}" is not allowed by CORS.`);
@@ -24,10 +29,11 @@ app.use(
       return callback(error);
     },
     credentials: true,
-    methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS'],
+    methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS', 'PATCH'],
     allowedHeaders: ['Content-Type', 'Authorization'],
   })
 );
+
 app.use(express.json({ limit: '2mb' }));
 app.use(express.urlencoded({ extended: true, limit: '2mb' }));
 
@@ -62,5 +68,5 @@ app.use(errorMiddleware);
 const PORT = process.env.PORT || 5000;
 app.listen(PORT, '0.0.0.0', () => {
   console.log(`SpenSight server running on port ${PORT}`);
-  console.log(`CORS allowed origins: ${ALLOWED_ORIGINS.join(', ')}`);
+  console.log(`CORS allowed origins: ${cleanAllowedOrigins.join(', ')}`);
 });
