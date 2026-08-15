@@ -1,3 +1,5 @@
+import { apiRequest } from './api.js';
+
 document.addEventListener('DOMContentLoaded', () => {
   document.querySelectorAll('[data-icon]').forEach((el) => {
     el.innerHTML = SpenIcons.icon(el.getAttribute('data-icon'));
@@ -56,7 +58,8 @@ document.addEventListener('DOMContentLoaded', () => {
     setLoading(true);
 
     try {
-      const data = await apiRequest('/auth/login', 'POST', { email, password }, true);
+      // Set requiresAuth to false for login requests
+      const data = await apiRequest('/auth/login', 'POST', { email, password }, false);
 
       localStorage.setItem('spensight_token', data.token);
       localStorage.setItem('spensight_user', JSON.stringify(data.user));

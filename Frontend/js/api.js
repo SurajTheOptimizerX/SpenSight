@@ -4,7 +4,7 @@ const API_BASE_URL = 'https://spensight.onrender.com/api';
 /**
  * Universal helper to perform API requests with JSON headers and token handling
  */
-async function apiRequest(endpoint, method = 'GET', data = null, requiresAuth = true) {
+export async function apiRequest(endpoint, method = 'GET', data = null, requiresAuth = true) {
     const headers = {
         'Content-Type': 'application/json'
     };
