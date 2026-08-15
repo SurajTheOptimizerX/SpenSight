@@ -10,7 +10,8 @@ export async function apiRequest(endpoint, method = 'GET', data = null, requires
     };
 
     if (requiresAuth) {
-        const token = localStorage.getItem('token');
+        // Updated to use the correct 'spensight_token' key
+        const token = localStorage.getItem('spensight_token');
         if (token) {
             headers['Authorization'] = `Bearer ${token}`;
         }
@@ -29,8 +30,9 @@ export async function apiRequest(endpoint, method = 'GET', data = null, requires
         const response = await fetch(`${API_BASE_URL}${endpoint}`, config);
 
         if (response.status === 401 && requiresAuth) {
-            localStorage.removeItem('token');
-            window.location.href = '/login.html';
+            localStorage.removeItem('spensight_token');
+            localStorage.removeItem('spensight_user');
+            window.location.href = 'login.html';
             return;
         }
 

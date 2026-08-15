@@ -47,10 +47,10 @@ document.addEventListener('DOMContentLoaded', () => {
   loginForm.addEventListener('submit', async (event) => {
     event.preventDefault();
 
-    const email = document.getElementById('email').value.trim();
+    const emailVal = document.getElementById('email').value.trim();
     const password = document.getElementById('password').value.trim();
 
-    if (!email || !password) {
+    if (!emailVal || !password) {
       showToast('Please fill in both email and password.');
       return;
     }
@@ -58,8 +58,13 @@ document.addEventListener('DOMContentLoaded', () => {
     setLoading(true);
 
     try {
-      // Set requiresAuth to false for login requests
-      const data = await apiRequest('/auth/login', 'POST', { email, password }, false);
+      // Sends both email and username so the backend controller receives its expected key
+      const data = await apiRequest(
+        '/auth/login',
+        'POST',
+        { email: emailVal, username: emailVal, password },
+        false
+      );
 
       localStorage.setItem('spensight_token', data.token);
       localStorage.setItem('spensight_user', JSON.stringify(data.user));
