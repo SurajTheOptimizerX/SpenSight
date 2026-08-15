@@ -64,6 +64,7 @@ async function sendVerificationEmail({ to, token }) {
   const verificationUrl = `${settings.verifyPageUrl}/verify.html?token=${encodeURIComponent(token)}`;
 
   const subject = `${appName} — Verify your email address`;
+  console.log(`[Mail:verify] Attempting verification email for ${to} (subject: "${subject}", link: ${verificationUrl})`);
   const text = [
     `Welcome to ${appName}!`,
     '',

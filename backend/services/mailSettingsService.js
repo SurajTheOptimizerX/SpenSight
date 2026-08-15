@@ -161,15 +161,38 @@ async function sendMail({ to, subject, html }) {
   const sender = settings.from || 'SpenSight <onboarding@resend.dev>';
   const recipients = Array.isArray(to) ? to : [to];
 
-  const { data, error } = await getResend().emails.send({
-    from: sender,
-    to: recipients,
-    subject,
-    html,
-  });
+  console.log(`[Mail:resend] Dispatching "${subject}" -> ${recipients.join(', ')} from "${sender}"`);
 
+  let result;
+  try {
+    result = await getResend().emails.send({ from: sender, to: recipients, subject, html });
+  } catch (err) {
+    // SDK/transport-level throw (bad API key, network failure, ...).
+    console.error('[Mail:resend] Throw while dispatching:', JSON.stringify({
+      to: recipients,
+      subject,
+      from: sender,
+      errorName: err && err.name,
+      errorMessage: err && err.message,
+      statusCode: err && err.statusCode,
+    }));
+    throw new Error((err && err.message) || 'Resend send failed.');
+  }
+
+  const { data, error } = result;
   if (error) {
-    console.error('Failed to send verification email via Resend:', error.message || error);
+    // Resend returns a structured error (e.g. a 403 validation_error for the
+    // test-domain restriction). Log the full object so delivery failures are
+    // diagnosable from the server logs.
+    console.error('[Mail:resend] Dispatch rejected by Resend:', JSON.stringify({
+      to: recipients,
+      subject,
+      from: sender,
+      errorName: error && error.name,
+      errorMessage: error && error.message,
+      statusCode: error && error.statusCode,
+      details: error && error.details,
+    }));
     throw new Error(error.message || 'Resend send failed.');
   }
 

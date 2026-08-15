@@ -80,7 +80,7 @@ document.addEventListener('DOMContentLoaded', () => {
         window.location.href = 'dashboard.html';
       }, 600);
     } catch (error) {
-      showToast(error.message || 'Registration failed. Please try again.');
+      showToast(error.detail || error.message || 'Registration failed. Please try again.');
     } finally {
       setLoading(false);
     }

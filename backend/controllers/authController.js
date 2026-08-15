@@ -40,12 +40,34 @@ const register = async (req, res) => {
       [name || 'User', normalizedEmail, password_hash, parseFloat(monthly_income) || 0.0, verification_token, VERIFY_TOKEN_HOURS]
     );
 
-    // Never fail registration because mail could not be delivered — the token
-    // is stored regardless and can be re-issued / surfaced in server logs.
+    // Dispatch the verification email BEFORE confirming success. If delivery
+    // fails (Resend test-domain restriction for non-owner addresses, revoked
+    // API key, network error, ...), roll the user back so they can retry, and
+    // return a clear error instead of a misleading "check your inbox" success.
     try {
       await sendVerificationEmail({ to: normalizedEmail, token: verification_token });
     } catch (mailError) {
-      console.error('Verification email send failed (token still stored):', mailError.message);
+      console.error('[Register:mail] Verification email dispatch FAILED:', JSON.stringify({
+        to: normalizedEmail,
+        errorName: mailError && mailError.name,
+        errorMessage: mailError && mailError.message,
+      }));
+
+      const userId = newUser.rows[0] && newUser.rows[0].id;
+      try {
+        if (userId) {
+          await db.query('DELETE FROM users WHERE id = $1 AND is_verified = FALSE', [userId]);
+          console.log(`[Register:mail] Rolled back unverified user ${userId} (${normalizedEmail})`);
+        }
+      } catch (rollbackError) {
+        console.error('[Register:mail] Rollback delete failed:', rollbackError.message);
+      }
+
+      return res.status(500).json({
+        success: false,
+        error: 'Failed to dispatch verification email. Please try again or contact support.',
+        detail: (mailError && mailError.message) || undefined,
+      });
     }
 
     return res.status(201).json({

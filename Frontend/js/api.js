@@ -46,7 +46,9 @@ async function apiRequest(endpoint, method = 'GET', data = null, requiresAuth = 
     const result = await response.json().catch(() => ({}));
 
     if (!response.ok) {
-      throw new Error(result.error || result.message || 'An error occurred during the API call.');
+      const err = new Error(result.error || result.message || 'An error occurred during the API call.');
+      if (result.detail) err.detail = result.detail;
+      throw err;
     }
 
     return result;
