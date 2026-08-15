@@ -1,0 +1,79 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta
+      name="viewport"
+      content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover"
+    />
+    <title>SpenSight - Verify Email</title>
+    <link rel="stylesheet" href="css/style.css" />
+  </head>
+  <body>
+    <!-- Fixed mobile top navbar (shown < 900px) -->
+    <header class="mobile-topbar mobile-topbar-simple" id="mobileTopbar">
+      <a class="mobile-brand" href="login.html" aria-label="SpenSight home">
+        <div class="brand-badge" id="mobileBrandBadge"><span data-icon="Wallet"></span></div>
+        <span class="mobile-brand-name">SpenSight</span>
+      </a>
+    </header>
+    <div class="auth-layout">
+      <div class="welcome-panel">
+        <div class="brand-header">
+          <div class="brand-badge"><span data-icon="Wallet"></span></div>
+          <span>SpenSight</span>
+        </div>
+
+        <div class="welcome-body">
+          <p class="hero-eyebrow"><span data-icon="ShieldCheck"></span> ACCOUNT SECURITY</p>
+          <h1 class="hero-heading">Verify your <span>email.</span></h1>
+          <p class="sub-text">
+            One quick confirmation unlocks your dashboard, insights and the Cleo AI copilot.
+          </p>
+        </div>
+
+        <p style="font-size: 12px; color: var(--text-muted)">© 2026 SpenSight. All rights reserved.</p>
+      </div>
+
+      <div>
+        <div class="auth-card">
+          <div
+            class="brand-badge"
+            id="verifyIcon"
+            style="width: 56px; height: 56px; margin: 0 auto 18px; font-size: 26px"
+          >
+            <span data-icon="Mail"></span>
+          </div>
+          <h2 id="verifyTitle" style="font-size: 24px; font-weight: 800; text-align: center">Verifying...</h2>
+          <p
+            id="verifyMessage"
+            style="color: var(--text-muted); font-size: 14px; margin-top: 8px; line-height: 1.6; text-align: center"
+          >
+            Checking your verification link, please wait.
+          </p>
+
+          <div
+            id="verifySpinner"
+            style="display: flex; align-items: center; justify-content: center; gap: 10px; margin-top: 24px; color: var(--text-muted); font-size: 14px"
+          >
+            <span data-icon="RefreshCw" style="width: 18px; height: 18px; animation: spin 1s linear infinite"></span>
+            Confirming your email address...
+          </div>
+
+          <a
+            href="login.html"
+            id="verifyLoginBtn"
+            class="btn-primary"
+            style="display: none; width: 100%; align-items: center; justify-content: center; margin-top: 26px"
+          >
+            Go to Login
+          </a>
+        </div>
+      </div>
+    </div>
+
+    <script src="js/icons.js"></script>
+    <script src="js/api.js"></script>
+    <script src="js/verify.js"></script>
+  </body>
+</html>

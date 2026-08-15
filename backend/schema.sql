@@ -13,8 +13,44 @@ CREATE TABLE IF NOT EXISTS users (
     monthly_income NUMERIC(12, 2) DEFAULT 0.00,
     currency VARCHAR(8) DEFAULT '₹',
     carry_over BOOLEAN DEFAULT FALSE,
+    is_verified BOOLEAN DEFAULT FALSE,
+    verification_token VARCHAR(255),
+    verification_expires_at TIMESTAMP WITH TIME ZONE,
+    verified_at TIMESTAMP WITH TIME ZONE,
     created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP
 );
+
+-- Email verification migration for databases created before these columns
+-- existed. Idempotent: existing accounts are pre-verified so nobody is
+-- locked out; brand-new registrations always start unverified.
+DO $$
+BEGIN
+    IF NOT EXISTS (
+        SELECT 1 FROM information_schema.columns
+        WHERE table_name = 'users' AND column_name = 'is_verified'
+    ) THEN
+        ALTER TABLE users ADD COLUMN is_verified BOOLEAN DEFAULT FALSE;
+        UPDATE users SET is_verified = TRUE;
+    END IF;
+    IF NOT EXISTS (
+        SELECT 1 FROM information_schema.columns
+        WHERE table_name = 'users' AND column_name = 'verification_token'
+    ) THEN
+        ALTER TABLE users ADD COLUMN verification_token VARCHAR(255);
+    END IF;
+    IF NOT EXISTS (
+        SELECT 1 FROM information_schema.columns
+        WHERE table_name = 'users' AND column_name = 'verification_expires_at'
+    ) THEN
+        ALTER TABLE users ADD COLUMN verification_expires_at TIMESTAMP WITH TIME ZONE;
+    END IF;
+    IF NOT EXISTS (
+        SELECT 1 FROM information_schema.columns
+        WHERE table_name = 'users' AND column_name = 'verified_at'
+    ) THEN
+        ALTER TABLE users ADD COLUMN verified_at TIMESTAMP WITH TIME ZONE;
+    END IF;
+END $$;
 
 -- 2. Accounts Table (Cash, Card, Savings, etc.)
 CREATE TABLE IF NOT EXISTS accounts (

@@ -21,4 +21,11 @@ const ALLOWED_ORIGINS = (
   .map((origin) => origin.trim())
   .filter(Boolean);
 
-module.exports = { JWT_SECRET, ALLOWED_ORIGINS };
+// Comma-separated list of emails allowed to reach admin endpoints
+// (e.g. the mail settings page). Empty list = admin APIs disabled.
+const ADMIN_EMAILS = (process.env.ADMIN_EMAILS || '')
+  .split(',')
+  .map((email) => email.trim().toLowerCase())
+  .filter(Boolean);
+
+module.exports = { JWT_SECRET, ALLOWED_ORIGINS, ADMIN_EMAILS };

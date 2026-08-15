@@ -102,6 +102,7 @@ const dataAPI = {
 };
 
 // Explicitly expose globals so classic AND module scripts can use them.
+window.SPENSIGHT_API_BASE = API_BASE_URL;
 window.getToken = getToken;
 window.getStoredUser = getStoredUser;
 window.apiRequest = apiRequest;

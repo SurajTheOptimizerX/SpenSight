@@ -14,8 +14,17 @@ const streamChatAssistant = async (req, res) => {
     return res.end();
   }
 
-  const userId = req.user && req.user.id;
-  await aiEngine.streamChatReply({ userId, prompt, res });
+  try {
+    const userId = req.user && req.user.id;
+    await aiEngine.streamChatReply({ userId, prompt: String(prompt), res });
+  } catch (error) {
+    // Never drop the SSE connection silently — emit a structured error token
+    // and a clean [DONE] so the frontend always reaches its own fallback UI.
+    console.error('AI chat stream error:', error);
+    res.write(`data: ${JSON.stringify({ token: 'Sorry, I hit a snag while thinking. Please try again.' })}\n\n`);
+    res.write('data: [DONE]\n\n');
+    res.end();
+  }
 };
 
 const getInsights = async (req, res) => {

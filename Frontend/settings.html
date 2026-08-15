@@ -1,0 +1,263 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta
+      name="viewport"
+      content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover"
+    />
+    <title>SpenSight - Mail Settings</title>
+    <link rel="stylesheet" href="css/style.css" />
+  </head>
+  <body>
+    <!-- Fixed mobile top navbar (shown < 900px) -->
+    <header class="mobile-topbar mobile-topbar-simple" id="mobileTopbar">
+      <a class="mobile-brand" href="dashboard.html" aria-label="SpenSight home">
+        <div class="brand-badge"><span data-icon="Wallet"></span></div>
+        <span class="mobile-brand-name">SpenSight</span>
+      </a>
+    </header>
+
+    <div class="settings-layout">
+      <div class="settings-header">
+        <div class="settings-title-row">
+          <div class="brand-badge" style="width: 44px; height: 44px; font-size: 20px">
+            <span data-icon="Settings"></span>
+          </div>
+          <div>
+            <h1 style="font-size: 22px; font-weight: 800; margin: 0">Mail Settings</h1>
+            <p style="margin: 2px 0 0; color: var(--text-muted); font-size: 13px">
+              Admin email configuration for verification &amp; notifications
+            </p>
+          </div>
+        </div>
+        <a href="dashboard.html" class="btn btn-ghost btn-sm" style="text-decoration: none; width: auto">Back</a>
+      </div>
+
+      <div class="auth-card settings-card">
+        <div id="statusBanner" class="status-banner status-warn">
+          <span data-icon="Settings"></span>
+          <span id="statusText">Loading mail settings...</span>
+        </div>
+
+        <form id="mailSettingsForm">
+          <div style="margin-bottom: 14px">
+            <label style="display: block; font-size: 13px; font-weight: 600; margin-bottom: 6px">SMTP Host</label>
+            <div style="position: relative">
+              <span
+                data-icon="Server"
+                style="
+                  position: absolute;
+                  left: 14px;
+                  top: 50%;
+                  transform: translateY(-50%);
+                  width: 16px;
+                  height: 16px;
+                  color: var(--text-muted);
+                "
+              ></span>
+              <input
+                type="text"
+                id="mailHost"
+                class="input-field"
+                placeholder="smtp.example.com"
+                style="padding-left: 40px"
+                autocomplete="off"
+                spellcheck="false"
+              />
+            </div>
+            <p class="settings-hint">Outgoing mail server (e.g. smtp.gmail.com, smtp.resend.com).</p>
+          </div>
+
+          <div style="margin-bottom: 14px">
+            <label style="display: block; font-size: 13px; font-weight: 600; margin-bottom: 6px">SMTP Port</label>
+            <input
+              type="number"
+              id="mailPort"
+              class="input-field"
+              placeholder="587"
+              inputmode="numeric"
+              min="1"
+              max="65535"
+            />
+            <p class="settings-hint">587 (STARTTLS) or 465 (SSL/TLS).</p>
+          </div>
+
+          <div style="margin-bottom: 14px">
+            <label style="display: block; font-size: 13px; font-weight: 600; margin-bottom: 6px">SMTP Username</label>
+            <div style="position: relative">
+              <span
+                data-icon="User"
+                style="
+                  position: absolute;
+                  left: 14px;
+                  top: 50%;
+                  transform: translateY(-50%);
+                  width: 16px;
+                  height: 16px;
+                  color: var(--text-muted);
+                "
+              ></span>
+              <input
+                type="text"
+                id="mailUser"
+                class="input-field"
+                placeholder="apikey or you@example.com"
+                style="padding-left: 40px"
+                autocomplete="off"
+                spellcheck="false"
+              />
+            </div>
+          </div>
+
+          <div style="margin-bottom: 14px">
+            <label style="display: block; font-size: 13px; font-weight: 600; margin-bottom: 6px">SMTP Password</label>
+            <div style="position: relative">
+              <span
+                data-icon="Lock"
+                style="
+                  position: absolute;
+                  left: 14px;
+                  top: 50%;
+                  transform: translateY(-50%);
+                  width: 16px;
+                  height: 16px;
+                  color: var(--text-muted);
+                "
+              ></span>
+              <input
+                type="password"
+                id="mailPass"
+                class="input-field"
+                placeholder="Leave blank to keep current"
+                style="padding-left: 40px"
+                autocomplete="new-password"
+              />
+            </div>
+            <p class="settings-hint">Stored encrypted in the database — never shown again.</p>
+          </div>
+
+          <div style="margin-bottom: 14px">
+            <label style="display: block; font-size: 13px; font-weight: 600; margin-bottom: 6px">From Address</label>
+            <div style="position: relative">
+              <span
+                data-icon="Mail"
+                style="
+                  position: absolute;
+                  left: 14px;
+                  top: 50%;
+                  transform: translateY(-50%);
+                  width: 16px;
+                  height: 16px;
+                  color: var(--text-muted);
+                "
+              ></span>
+              <input
+                type="text"
+                id="mailFrom"
+                class="input-field"
+                placeholder="SpenSight &lt;noreply@spensight.app&gt;"
+                style="padding-left: 40px"
+                autocomplete="off"
+                spellcheck="false"
+              />
+            </div>
+          </div>
+
+          <div style="margin-bottom: 14px">
+            <label style="display: block; font-size: 13px; font-weight: 600; margin-bottom: 6px">App Name</label>
+            <div style="position: relative">
+              <span
+                data-icon="Sparkles"
+                style="
+                  position: absolute;
+                  left: 14px;
+                  top: 50%;
+                  transform: translateY(-50%);
+                  width: 16px;
+                  height: 16px;
+                  color: var(--text-muted);
+                "
+              ></span>
+              <input
+                type="text"
+                id="mailAppName"
+                class="input-field"
+                placeholder="SpenSight"
+                style="padding-left: 40px"
+                autocomplete="off"
+              />
+            </div>
+          </div>
+
+          <div style="margin-bottom: 14px">
+            <label style="display: block; font-size: 13px; font-weight: 600; margin-bottom: 6px"
+              >Verify Page URL</label
+            >
+            <div style="position: relative">
+              <span
+                data-icon="ShieldCheck"
+                style="
+                  position: absolute;
+                  left: 14px;
+                  top: 50%;
+                  transform: translateY(-50%);
+                  width: 16px;
+                  height: 16px;
+                  color: var(--text-muted);
+                "
+              ></span>
+              <input
+                type="url"
+                id="mailVerifyUrl"
+                class="input-field"
+                placeholder="https://spensight.netlify.app"
+                style="padding-left: 40px"
+                autocomplete="off"
+                spellcheck="false"
+              />
+            </div>
+            <p class="settings-hint">Base URL of the hosted frontend that shows the verification result.</p>
+          </div>
+
+          <div class="settings-actions">
+            <button
+              type="submit"
+              id="saveBtn"
+              class="btn-primary"
+              style="display: flex; align-items: center; justify-content: center; gap: 8px; width: 100%"
+            >
+              <span data-icon="Check"></span> Save Settings
+            </button>
+          </div>
+        </form>
+
+        <div class="settings-divider">
+          <label style="display: block; font-size: 13px; font-weight: 600; margin-bottom: 6px"
+            >Send a test email</label
+          >
+          <div style="display: flex; gap: 8px">
+            <input
+              type="email"
+              id="testEmail"
+              class="input-field"
+              placeholder="you@example.com"
+              autocomplete="off"
+              style="flex: 1"
+            />
+            <button type="button" id="testBtn" class="btn btn-ghost" style="white-space: nowrap">
+              <span data-icon="Send"></span> Test
+            </button>
+          </div>
+          <p class="settings-hint">Sends a test message using the saved credentials to confirm they work.</p>
+        </div>
+      </div>
+    </div>
+
+    <div class="toast-container" id="toastContainer"></div>
+
+    <script src="js/icons.js"></script>
+    <script src="js/api.js"></script>
+    <script src="js/settings.js"></script>
+  </body>
+</html>

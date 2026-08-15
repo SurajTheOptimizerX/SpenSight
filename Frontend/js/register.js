@@ -64,6 +64,14 @@ document.addEventListener('DOMContentLoaded', () => {
     try {
       const data = await apiRequest('/auth/register', 'POST', { name, email, password }, false);
 
+      if (data && data.requiresVerification) {
+        const registerFormEl = document.getElementById('registerForm');
+        const successEl = document.getElementById('registerSuccess');
+        if (registerFormEl) registerFormEl.style.display = 'none';
+        if (successEl) successEl.style.display = 'block';
+        return;
+      }
+
       localStorage.setItem('spensight_token', data.token);
       localStorage.setItem('spensight_user', JSON.stringify(data.user));
 

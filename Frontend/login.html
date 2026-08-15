@@ -115,6 +115,79 @@
               </div>
             </div>
 
+            <div style="margin-bottom: 20px">
+              <label style="display: block; font-size: 13px; font-weight: 600; margin-bottom: 6px"
+                >Math Verification</label
+              >
+              <div style="display: flex; align-items: center; gap: 10px; margin-bottom: 8px">
+                <span
+                  id="captchaQuestion"
+                  style="
+                    flex: 1;
+                    font-size: 18px;
+                    font-weight: 700;
+                    letter-spacing: 1px;
+                    background: var(--card-bg);
+                    border: 1px solid var(--card-border);
+                    border-radius: 10px;
+                    padding: 11px 14px;
+                    user-select: none;
+                    color: var(--text-white);
+                  "
+                  >42 + 19 = ?</span
+                >
+                <button
+                  type="button"
+                  id="captchaRefresh"
+                  title="New problem"
+                  aria-label="Generate a new math problem"
+                  style="
+                    width: 46px;
+                    height: 46px;
+                    flex-shrink: 0;
+                    border: 1px solid var(--card-border);
+                    border-radius: 10px;
+                    background: var(--card-bg);
+                    color: var(--text-white);
+                    cursor: pointer;
+                    display: flex;
+                    align-items: center;
+                    justify-content: center;
+                  "
+                >
+                  <span data-icon="RefreshCw"></span>
+                </button>
+              </div>
+              <div style="position: relative">
+                <span
+                  data-icon="Lightbulb"
+                  style="
+                    position: absolute;
+                    left: 14px;
+                    top: 50%;
+                    transform: translateY(-50%);
+                    width: 16px;
+                    height: 16px;
+                    color: var(--text-muted);
+                  "
+                ></span>
+                <input
+                  type="text"
+                  id="captchaAnswer"
+                  class="input-field"
+                  placeholder="Enter your answer"
+                  style="padding-left: 40px"
+                  inputmode="numeric"
+                  autocomplete="off"
+                  aria-label="Math captcha answer"
+                  required
+                />
+              </div>
+              <div class="form-error" id="captchaError" style="display: none">
+                Incorrect CAPTCHA answer, please try again.
+              </div>
+            </div>
+
             <button
               type="submit"
               id="submitBtn"

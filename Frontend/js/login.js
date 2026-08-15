@@ -7,6 +7,42 @@ document.addEventListener('DOMContentLoaded', () => {
   const submitBtn = document.getElementById('submitBtn');
   const toastContainer = document.getElementById('toastContainer');
 
+  // ---------- Math CAPTCHA ----------
+  const captchaQuestion = document.getElementById('captchaQuestion');
+  const captchaRefresh = document.getElementById('captchaRefresh');
+  const captchaAnswer = document.getElementById('captchaAnswer');
+  const captchaError = document.getElementById('captchaError');
+  let captchaResult = 0;
+
+  function generateCaptcha() {
+    const a = 10 + Math.floor(Math.random() * 90);
+    const b = 10 + Math.floor(Math.random() * 90);
+    const useAddition = Math.random() >= 0.5;
+    if (useAddition) {
+      captchaResult = a + b;
+      captchaQuestion.textContent = `${a} + ${b} = ?`;
+    } else {
+      const high = Math.max(a, b);
+      const low = Math.min(a, b);
+      captchaResult = high - low;
+      captchaQuestion.textContent = `${high} - ${low} = ?`;
+    }
+    if (captchaError) captchaError.style.display = 'none';
+    if (captchaAnswer) captchaAnswer.value = '';
+  }
+
+  if (captchaRefresh) {
+    captchaRefresh.addEventListener('click', generateCaptcha);
+  }
+  if (captchaQuestion) {
+    generateCaptcha();
+  }
+  if (captchaAnswer) {
+    captchaAnswer.addEventListener('input', () => {
+      if (captchaError) captchaError.style.display = 'none';
+    });
+  }
+
   function escapeHtml(str) {
     return String(str === undefined || str === null ? '' : str)
       .replace(/&/g, '&amp;')
@@ -50,6 +86,14 @@ document.addEventListener('DOMContentLoaded', () => {
 
     if (!emailVal || !password) {
       showToast('Please fill in both email and password.');
+      return;
+    }
+
+    const rawAnswer = String((captchaAnswer && captchaAnswer.value) || '').trim();
+    if (rawAnswer === '' || parseInt(rawAnswer, 10) !== captchaResult) {
+      if (captchaError) captchaError.style.display = 'block';
+      generateCaptcha();
+      if (captchaAnswer) captchaAnswer.focus();
       return;
     }
 

@@ -7,6 +7,10 @@ const { ALLOWED_ORIGINS } = require('./config/env');
 // Activate BullMQ background queue worker
 require('./workers/csvWorker');
 
+// Apply idempotent schema migrations on boot (safe if the DB is unavailable)
+const { runMigrations } = require('./config/migrate');
+runMigrations();
+
 const app = express();
 const ROOT_DIR = path.join(__dirname, '..');
 app.set('ROOT_DIR', ROOT_DIR);
@@ -50,15 +54,18 @@ app.use('/api/categories', require('./routes/categoryRoutes'));
 app.use('/api/accounts', require('./routes/accountRoutes'));
 app.use('/api/analytics', require('./routes/analyticsRoutes'));
 app.use('/api/insights', require('./routes/insightsRoutes'));
+app.use('/api/settings', require('./routes/settingsRoutes'));
 
 // Static HTML Page Fallbacks
 app.get('/', (req, res) => res.sendFile(path.join(ROOT_DIR, 'Frontend/index.html')));
 app.get('/login.html', (req, res) => res.sendFile(path.join(ROOT_DIR, 'Frontend/login.html')));
 app.get('/register.html', (req, res) => res.sendFile(path.join(ROOT_DIR, 'Frontend/register.html')));
+app.get('/verify.html', (req, res) => res.sendFile(path.join(ROOT_DIR, 'Frontend/verify.html')));
 app.get('/dashboard.html', (req, res) => res.sendFile(path.join(ROOT_DIR, 'Frontend/dashboard.html')));
 app.get('/insights.html', (req, res) => res.sendFile(path.join(ROOT_DIR, 'Frontend/insights.html')));
 app.get('/categories.html', (req, res) => res.sendFile(path.join(ROOT_DIR, 'Frontend/categories.html')));
 app.get('/subscriptions.html', (req, res) => res.sendFile(path.join(ROOT_DIR, 'Frontend/subscriptions.html')));
+app.get('/settings.html', (req, res) => res.sendFile(path.join(ROOT_DIR, 'Frontend/settings.html')));
 
 // 404 handler + central error handler (must be last)
 const { notFoundMiddleware, errorMiddleware } = require('./middleware/errorMiddleware');

@@ -1477,6 +1477,16 @@ body.ai-active #aiView {
 
 .sub-text { color: var(--text-muted); margin-top: 14px; line-height: 1.65; font-size: 15px; }
 
+.form-error {
+  color: var(--accent-red);
+  font-size: 12.5px;
+  font-weight: 600;
+  margin-top: 8px;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
 .auth-card {
   width: 100%;
   max-width: 440px;
@@ -1500,6 +1510,85 @@ body.ai-active #aiView {
 }
 
 .auth-feature-row .icon { color: var(--accent-green); width: 18px; height: 18px; }
+
+/* ============================================================
+   Admin mail settings page
+   ============================================================ */
+.settings-layout {
+  width: 100%;
+  max-width: 620px;
+  margin: 0 auto;
+  padding: 40px 20px;
+}
+
+.settings-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  margin-bottom: 18px;
+}
+
+.settings-title-row {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+
+.settings-card { max-width: 620px; }
+
+.status-banner {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 12px 14px;
+  border-radius: 12px;
+  font-size: 13.5px;
+  font-weight: 600;
+  line-height: 1.5;
+  margin-bottom: 20px;
+  border: 1px solid;
+}
+
+.status-banner .icon { width: 18px; height: 18px; flex-shrink: 0; }
+
+.status-ok {
+  background: rgba(16, 185, 129, 0.1);
+  color: var(--accent-green);
+  border-color: rgba(16, 185, 129, 0.3);
+}
+
+.status-warn {
+  background: rgba(245, 158, 11, 0.1);
+  color: #fbbf24;
+  border-color: rgba(245, 158, 11, 0.3);
+}
+
+.status-error {
+  background: rgba(239, 68, 68, 0.1);
+  color: var(--accent-red);
+  border-color: rgba(239, 68, 68, 0.3);
+}
+
+.settings-hint {
+  font-size: 12px;
+  color: var(--text-muted);
+  margin-top: 4px;
+  line-height: 1.5;
+}
+
+.settings-actions {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  margin-top: 22px;
+}
+
+.settings-divider {
+  margin-top: 22px;
+  padding-top: 20px;
+  border-top: 1px solid var(--card-border);
+}
 
 /* Hamburger for mobile */
 .hamburger {
