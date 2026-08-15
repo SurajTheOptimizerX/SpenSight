@@ -193,7 +193,16 @@ async function sendMail({ to, subject, html }) {
       statusCode: error && error.statusCode,
       details: error && error.details,
     }));
-    throw new Error(error.message || 'Resend send failed.');
+
+    const err = new Error(error.message || 'Resend send failed.');
+    if (error.statusCode) err.statusCode = error.statusCode;
+    // Free/test domains only deliver to the account owner. Tag this specific
+    // case so the registration flow can fall back to the dev-link path
+    // instead of failing or leaking raw API messages to the user.
+    err.isTestDomainRestriction =
+      error.statusCode === 403 &&
+      /testing emails to your own email|verify a domain|test recipients?/i.test(String(error.message || ''));
+    throw err;
   }
 
   console.log(`[Mail:resend] ${data && data.id ? data.id : 'sent'} -> ${recipients.join(', ')}`);

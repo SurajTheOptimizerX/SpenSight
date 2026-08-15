@@ -40,13 +40,30 @@ const register = async (req, res) => {
       [name || 'User', normalizedEmail, password_hash, parseFloat(monthly_income) || 0.0, verification_token, VERIFY_TOKEN_HOURS]
     );
 
-    // Dispatch the verification email BEFORE confirming success. If delivery
-    // fails (Resend test-domain restriction for non-owner addresses, revoked
-    // API key, network error, ...), roll the user back so they can retry, and
-    // return a clear error instead of a misleading "check your inbox" success.
+    // Dispatch the verification email BEFORE confirming success.
     try {
       await sendVerificationEmail({ to: normalizedEmail, token: verification_token });
     } catch (mailError) {
+      // Test-mode fallback: the Resend free/test domain only delivers to the
+      // account owner. Keep the account, print the verification link to the
+      // server console so testing can proceed, and tell the user clearly
+      // instead of leaking the raw API error or showing a fake "emailed you".
+      if (mailError && mailError.isTestDomainRestriction) {
+        const devLink = mailError.verificationUrl || 'unknown';
+        console.log(`[DEV VERIFICATION LINK]: ${devLink}`);
+        console.log('[Register:mail] Resend test-domain restriction hit; account kept for dev verification link.');
+
+        return res.status(201).json({
+          success: true,
+          requiresVerification: true,
+          testMode: true,
+          message: 'Account created! (Test Mode: Check backend console for verification link, or use the account owner email).',
+          user: newUser.rows[0],
+        });
+      }
+
+      // Real delivery failure (revoked key, network error, etc.): log, roll
+      // back the user so they can retry, and return a clear error.
       console.error('[Register:mail] Verification email dispatch FAILED:', JSON.stringify({
         to: normalizedEmail,
         errorName: mailError && mailError.name,

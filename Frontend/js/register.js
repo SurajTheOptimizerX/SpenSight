@@ -68,7 +68,18 @@ document.addEventListener('DOMContentLoaded', () => {
         const registerFormEl = document.getElementById('registerForm');
         const successEl = document.getElementById('registerSuccess');
         if (registerFormEl) registerFormEl.style.display = 'none';
-        if (successEl) successEl.style.display = 'block';
+        if (successEl) {
+          if (data.testMode) {
+            const heading = successEl.querySelector('h2');
+            const text = successEl.querySelector('p');
+            if (heading) heading.textContent = 'Account created!';
+            if (text) {
+              text.textContent =
+                'Test Mode: Check the backend console for your verification link, or register with the account owner email.';
+            }
+          }
+          successEl.style.display = 'block';
+        }
         return;
       }
 

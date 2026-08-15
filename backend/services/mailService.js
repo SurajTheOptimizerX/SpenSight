@@ -91,8 +91,18 @@ async function sendVerificationEmail({ to, token }) {
   </div>`;
 
   // Reuse the plain-send path but build HTML from the effective settings.
-  const result = await sendMail({ to, subject, text, html });
-  return { ...result, verificationUrl };
+  // Attach the URL to any thrown error so callers (register) can surface the
+  // dev verification link even when real delivery is blocked (test domain).
+  try {
+    const result = await sendMail({ to, subject, text, html });
+    if (result && result.dev) {
+      console.log(`[DEV VERIFICATION LINK]: ${verificationUrl}`);
+    }
+    return { ...result, verificationUrl };
+  } catch (error) {
+    if (error && !error.verificationUrl) error.verificationUrl = verificationUrl;
+    throw error;
+  }
 }
 
 // Keep the exported name working for consumers: accepts { to, token } now
