@@ -20,10 +20,7 @@ const DEFAULT_ACCOUNTS = [
 const getAccounts = async (req, res) => {
   try {
     const userId = req.user.id;
-    const { range, monthYear } = analytics.resolveRangeParams(req.query);
-    const isYearly = range === 'yearly';
-    const dateBucket = isYearly ? "TO_CHAR(t.date, 'YYYY')" : "TO_CHAR(t.date, 'YYYY-MM')";
-    const bucketValue = isYearly ? monthYear.substring(0, 4) : monthYear;
+    const { from, to } = analytics.resolveRangeParams(req.query);
 
     let accountRes = await db.query('SELECT * FROM accounts WHERE user_id = $1 ORDER BY id ASC', [userId]);
 
@@ -42,9 +39,9 @@ const getAccounts = async (req, res) => {
         COALESCE(SUM(CASE WHEN t.type = 'income' OR (t.type = 'expense' AND t.is_debit = false) THEN t.amount ELSE 0 END), 0) AS income_so_far,
         COALESCE(SUM(CASE WHEN t.type = 'expense' AND t.is_debit = true THEN t.amount ELSE 0 END), 0) AS expense_so_far
       FROM transactions t
-      WHERE t.user_id = $1 AND ${dateBucket} = $2
+      WHERE t.user_id = $1 AND t.date >= $2::date AND t.date <= $3::date
     `;
-    const totalsRes = await db.query(totalsQuery, [userId, bucketValue]);
+    const totalsRes = await db.query(totalsQuery, [userId, from, to]);
 
     const totalBalance = accountRes.rows.reduce((acc, a) => acc + toFloat(a.balance), 0);
 

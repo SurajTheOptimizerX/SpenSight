@@ -5,7 +5,10 @@ const getHealthScore = async (req, res) => {
     const userId = req.user.id;
     const monthYear = req.query.month_year || new Date().toISOString().substring(0, 7);
 
-    const healthSummary = await aiEngine.calculateHealthScore(userId, monthYear);
+    const healthSummary = await aiEngine.calculateHealthScore(userId, monthYear, {
+      startDate: req.query.startDate,
+      endDate: req.query.endDate,
+    });
 
     return res.json({
       health_summary: {

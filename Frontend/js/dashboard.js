@@ -19,6 +19,9 @@ document.addEventListener('DOMContentLoaded', () => {
   const state = {
     range: 'monthly',
     monthYear: new Date().toISOString().substring(0, 7),
+    // Custom window ({ startDate, endDate } in YYYY-MM-DD). When null the
+    // window falls back to the range chip / monthYear (current month, etc.).
+    dateRange: null,
     carryOver: false,
     selectedAccountId: null,
     selectedToAccountId: null,
@@ -170,9 +173,6 @@ document.addEventListener('DOMContentLoaded', () => {
     if (btn) btn.addEventListener('click', handleLogout);
   });
 
-  const monthPicker = $('monthPicker');
-  if (monthPicker) monthPicker.value = state.monthYear;
-
   const navItems = document.querySelectorAll('.nav-item');
   const viewSections = document.querySelectorAll('.view-section');
   const pageTitle = $('pageTitle');
@@ -246,22 +246,59 @@ document.addEventListener('DOMContentLoaded', () => {
     if (viewId === 'categoriesView') loadCategoriesData();
   }
 
-  // ---------- Query builder ----------
-  function analyticsQuery() {
-    const q = `range=${encodeURIComponent(state.range)}`;
-    if (state.range === 'yearly') {
-      return `${q}&year=${state.monthYear.substring(0, 4)}`;
-    }
-    return `${q}&month_year=${encodeURIComponent(state.monthYear)}`;
+  // ---------- Date range helpers ----------
+  function toISODate(d) {
+    const y = d.getFullYear();
+    const m = String(d.getMonth() + 1).padStart(2, '0');
+    const day = String(d.getDate()).padStart(2, '0');
+    return `${y}-${m}-${day}`;
   }
 
-  // view_mode + month_year filter for accounts / transactions / budgets endpoints
-  function filterQuery() {
-    const q = `view_mode=${encodeURIComponent(state.range)}&month_year=${encodeURIComponent(state.monthYear)}`;
-    if (state.range === 'yearly') {
-      return `${q}&year=${state.monthYear.substring(0, 4)}`;
+  function lastDayOfMonthISO(monthYear) {
+    const [y, m] = String(monthYear).split('-').map((n) => parseInt(n, 10));
+    const last = new Date(y, m, 0).getDate();
+    return `${monthYear}-${String(last).padStart(2, '0')}`;
+  }
+
+  function isCustomRange() {
+    return Boolean(state.dateRange && state.dateRange.startDate && state.dateRange.endDate);
+  }
+
+  // Resolve the active window in YYYY-MM-DD. Custom ranges win; otherwise the
+  // selected chip + anchor month/year determine the window (month or year).
+  function windowBounds() {
+    if (isCustomRange()) {
+      return { startDate: state.dateRange.startDate, endDate: state.dateRange.endDate };
     }
-    return q;
+    if (state.range === 'yearly') {
+      const y = state.monthYear.substring(0, 4);
+      return { startDate: `${y}-01-01`, endDate: `${y}-12-31` };
+    }
+    return { startDate: `${state.monthYear}-01`, endDate: lastDayOfMonthISO(state.monthYear) };
+  }
+
+  // ---------- Query builder ----------
+  function analyticsQuery() {
+    const b = windowBounds();
+    const q = `range=${encodeURIComponent(state.range)}`;
+    const dates = `startDate=${b.startDate}&endDate=${b.endDate}`;
+    if (isCustomRange()) {
+      return `${q}&${dates}`;
+    }
+    if (state.range === 'yearly') {
+      return `${q}&year=${state.monthYear.substring(0, 4)}&${dates}`;
+    }
+    return `${q}&month_year=${encodeURIComponent(state.monthYear)}&${dates}`;
+  }
+
+  // view_mode + month_year + date window for accounts / transactions / budgets endpoints
+  function filterQuery() {
+    const b = windowBounds();
+    let q = `view_mode=${encodeURIComponent(state.range)}`;
+    if (state.range === 'yearly') {
+      q += `&year=${state.monthYear.substring(0, 4)}`;
+    }
+    return `${q}&month_year=${encodeURIComponent(state.monthYear)}&startDate=${b.startDate}&endDate=${b.endDate}`;
   }
 
   // ---------- 1. Header totals (real-time sync) ----------
@@ -284,11 +321,13 @@ document.addEventListener('DOMContentLoaded', () => {
   // ---------- 2. Dashboard ----------
   async function loadDashboardData() {
     try {
+      const b = windowBounds();
+      const dateParams = `month_year=${encodeURIComponent(state.monthYear)}&startDate=${b.startDate}&endDate=${b.endDate}`;
       const [healthRes, insightsRes, breakdown, trends, cashflow] = await Promise.all([
-        apiRequest(`/health/score?month_year=${state.monthYear}`, 'GET', null, true),
-        apiRequest(`/ai/insights?month_year=${state.monthYear}`, 'GET', null, true),
+        apiRequest(`/health/score?${dateParams}`, 'GET', null, true),
+        apiRequest(`/ai/insights?${dateParams}`, 'GET', null, true),
         apiRequest(`/analytics/breakdown?${analyticsQuery()}`, 'GET', null, true),
-        apiRequest(`/analytics/trends?${analyticsQuery()}&months=6`, 'GET', null, true),
+        apiRequest(`/analytics/trends?${analyticsQuery()}`, 'GET', null, true),
         apiRequest(`/analytics/cashflow?${analyticsQuery()}`, 'GET', null, true),
       ]);
 
@@ -1577,23 +1616,131 @@ document.addEventListener('DOMContentLoaded', () => {
 
   // ---------- 11. Range filtering ----------
   const rangeChips = $('rangeChips');
+  function syncRangeChips() {
+    if (!rangeChips) return;
+    rangeChips.querySelectorAll('.range-chip').forEach((c) => {
+      const isActive = !isCustomRange() && c.getAttribute('data-range') === state.range;
+      c.classList.toggle('active', isActive);
+      c.classList.toggle('active-filter', isActive);
+    });
+  }
+
   if (rangeChips) {
     rangeChips.querySelectorAll('.range-chip').forEach((chip) => {
       chip.addEventListener('click', () => {
         state.range = chip.getAttribute('data-range');
-        rangeChips.querySelectorAll('.range-chip').forEach((c) => {
-          const isActive = c === chip;
-          c.classList.toggle('active', isActive);
-          c.classList.toggle('active-filter', isActive);
-        });
+        state.dateRange = null; // chip selection clears any custom window
+        syncRangeChips();
+        if (dateRangeLabel) dateRangeLabel.textContent = formatRangeLabel();
         refreshActiveViewData();
       });
     });
   }
 
-  if (monthPicker) {
-    monthPicker.addEventListener('change', () => {
-      state.monthYear = monthPicker.value || state.monthYear;
+  // ---------- 12. Date Range Picker ----------
+  const dateRangePicker = $('dateRangePicker');
+  const dateRangeTrigger = $('dateRangeTrigger');
+  const dateRangePopover = $('dateRangePopover');
+  const dateRangeLabel = $('dateRangeLabel');
+  const drpStart = $('drpStartDate');
+  const drpEnd = $('drpEndDate');
+  const drpCustomFields = $('drpCustomFields');
+
+  function closeDateRangePopover() {
+    if (dateRangePopover) dateRangePopover.classList.remove('open');
+    if (drpCustomFields) drpCustomFields.hidden = true;
+  }
+
+  function formatRangeLabel() {
+    if (isCustomRange()) {
+      const s = state.dateRange.startDate;
+      const e = state.dateRange.endDate;
+      const fmt = (iso) =>
+        new Date(`${iso}T00:00:00`).toLocaleDateString('en-IN', { day: 'numeric', month: 'short', year: 'numeric' });
+      if (s.substring(0, 7) === e.substring(0, 7)) {
+        const start = new Date(`${s}T00:00:00`);
+        return `${start.toLocaleDateString('en-IN', { day: 'numeric', month: 'short' })} – ${fmt(e)}`;
+      }
+      return `${fmt(s)} – ${fmt(e)}`;
+    }
+    if (state.range === 'yearly') return state.monthYear.substring(0, 4);
+    return new Date(`${state.monthYear}-01T00:00:00`).toLocaleDateString('en-IN', {
+      month: 'long',
+      year: 'numeric',
+    });
+  }
+
+  function applyCustomRange(startDate, endDate) {
+    state.dateRange = { startDate, endDate };
+    state.range = 'custom';
+    // Budgets stay month-scoped: anchor them to the month of the window end.
+    state.monthYear = endDate.substring(0, 7);
+    syncRangeChips();
+    if (dateRangeLabel) dateRangeLabel.textContent = formatRangeLabel();
+    closeDateRangePopover();
+    refreshActiveViewData();
+  }
+
+  function applyPreset(preset) {
+    const today = new Date();
+    if (preset === 'this-month') {
+      const my = today.toISOString().substring(0, 7);
+      applyCustomRange(`${my}-01`, toISODate(today));
+    } else if (preset === 'last-30') {
+      const start = new Date(today);
+      start.setDate(today.getDate() - 29);
+      applyCustomRange(toISODate(start), toISODate(today));
+    } else if (preset === 'ytd') {
+      applyCustomRange(`${today.getFullYear()}-01-01`, toISODate(today));
+    } else if (preset === 'custom') {
+      if (drpCustomFields) drpCustomFields.hidden = false;
+      if (drpStart) {
+        drpStart.value = isCustomRange() ? state.dateRange.startDate : `${state.monthYear}-01`;
+      }
+      if (drpEnd) drpEnd.value = isCustomRange() ? state.dateRange.endDate : toISODate(today);
+      if (dateRangePopover) dateRangePopover.classList.add('open');
+    }
+  }
+
+  if (dateRangeTrigger && dateRangePopover) {
+    dateRangeTrigger.addEventListener('click', (e) => {
+      e.stopPropagation();
+      dateRangePopover.classList.toggle('open');
+    });
+  }
+  if (dateRangePicker) {
+    document.addEventListener('click', (e) => {
+      if (!dateRangePicker.contains(e.target)) closeDateRangePopover();
+    });
+    dateRangePopover.querySelectorAll('.drp-preset').forEach((btn) => {
+      btn.addEventListener('click', () => applyPreset(btn.getAttribute('data-preset')));
+    });
+  }
+  const drpApply = $('drpApply');
+  if (drpApply) {
+    drpApply.addEventListener('click', () => {
+      const s = drpStart ? drpStart.value : '';
+      const e = drpEnd ? drpEnd.value : '';
+      if (!s || !e) {
+        showToast('Please pick both a start and an end date.', 'error');
+        return;
+      }
+      if (s > e) {
+        showToast('End date must be on or after the start date.', 'error');
+        return;
+      }
+      applyCustomRange(s, e);
+    });
+  }
+  const drpReset = $('drpReset');
+  if (drpReset) {
+    drpReset.addEventListener('click', () => {
+      state.dateRange = null;
+      state.range = 'monthly';
+      state.monthYear = new Date().toISOString().substring(0, 7);
+      syncRangeChips();
+      if (dateRangeLabel) dateRangeLabel.textContent = formatRangeLabel();
+      closeDateRangePopover();
       refreshActiveViewData();
     });
   }
@@ -1608,6 +1755,8 @@ document.addEventListener('DOMContentLoaded', () => {
   // ---------- Initial execution ----------
   (async function init() {
     hydrateIcons(document);
+    syncRangeChips();
+    if (dateRangeLabel) dateRangeLabel.textContent = formatRangeLabel();
     await Promise.all([loadCarryOver(), loadAccountsData(), loadCategoriesData()]);
     setActiveView('dashboardView');
   })();

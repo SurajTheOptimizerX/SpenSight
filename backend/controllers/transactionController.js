@@ -296,7 +296,7 @@ const deleteImportedCsv = async (req, res) => {
 const getTransactions = async (req, res) => {
   try {
     const userId = req.user.id;
-    const { range, monthYear } = analytics.resolveRangeParams(req.query);
+    const { range, from, to, monthYear } = analytics.resolveRangeParams(req.query);
     const limit = Math.min(parseInt(req.query.limit || '500', 10) || 500, 1000);
     const type = req.query.type;
     const accountId = toInt(req.query.account_id);
@@ -307,7 +307,10 @@ const getTransactions = async (req, res) => {
     let paramIndex = 2;
 
     if (req.query.all !== 'true') {
-      if (range === 'yearly') {
+      if (req.query.startDate || req.query.from) {
+        conditions.push(`t.date >= $${paramIndex++}::date AND t.date <= $${paramIndex++}::date`);
+        params.push(from, to);
+      } else if (range === 'yearly') {
         conditions.push(`TO_CHAR(t.date, 'YYYY') = $${paramIndex++}`);
         params.push(monthYear.substring(0, 4));
       } else {

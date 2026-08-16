@@ -40,24 +40,53 @@ const CHART_PALETTE = [
   '#d946ef',
 ];
 
+const DATE_RE = /^\d{4}-\d{2}-\d{2}$/;
+
+function isValidDateStr(value) {
+  if (!DATE_RE.test(String(value || ''))) return false;
+  const d = new Date(`${value}T00:00:00`);
+  return !isNaN(d.getTime()) && `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}` === value;
+}
+
+function lastDayOfMonth(monthYear) {
+  const [year, month] = String(monthYear || '').split('-').map((n) => parseInt(n, 10));
+  if (!year || !month) return new Date().getDate();
+  return new Date(Date.UTC(year, month, 0)).getUTCDate();
+}
+
+// Pick a sensible trend-bucket granularity for an arbitrary custom range.
+function bucketForSpan(from, to) {
+  const days = Math.round((new Date(`${to}T00:00:00`) - new Date(`${from}T00:00:00`)) / 86400000) + 1;
+  if (days <= 35) return 'daily';
+  if (days <= 200) return 'weekly';
+  return 'monthly';
+}
+
 function resolveRangeParams(query = {}) {
   const requested = query.view_mode || query.range;
-  const range = ['daily', 'weekly', 'monthly', 'yearly'].includes(requested) ? requested : 'monthly';
+  const known = ['daily', 'weekly', 'monthly', 'yearly'];
+  let range = known.includes(requested) ? requested : 'monthly';
   const monthYear = query.month_year || new Date().toISOString().substring(0, 7);
 
   let from = null;
   let to = null;
 
-  if (query.from && query.to) {
-    from = query.from;
-    to = query.to;
-  } else if (range === 'monthly' || range === 'daily' || range === 'weekly') {
-    from = `${monthYear}-01`;
-    to = `${monthYear}-28`; // end of month handled with interval below
-  } else {
+  // Custom date range (startDate/endDate are the canonical params; from/to kept for backwards compat).
+  const startDate = query.startDate || query.from;
+  const endDate = query.endDate || query.to;
+  if (isValidDateStr(startDate) && isValidDateStr(endDate) && startDate <= endDate) {
+    from = startDate;
+    to = endDate;
+    if (!known.includes(requested)) {
+      range = bucketForSpan(from, to);
+    }
+  } else if (range === 'yearly') {
     const year = query.year || monthYear.substring(0, 4);
     from = `${year}-01-01`;
     to = `${year}-12-31`;
+  } else {
+    from = `${monthYear}-01`;
+    to = `${monthYear}-${String(lastDayOfMonth(monthYear)).padStart(2, '0')}`;
   }
 
   return { range, monthYear, from, to };
@@ -65,25 +94,7 @@ function resolveRangeParams(query = {}) {
 
 // Total income / expense / net for a time range
 async function getSummary(userId, query = {}) {
-  const { range, from } = resolveRangeParams(query);
-  const where = ['t.user_id = $1'];
-  const params = [userId];
-  let dateClause = '';
-
-  if (query.month_year && range === 'monthly') {
-    dateClause = " AND TO_CHAR(t.date, 'YYYY-MM') = $2";
-    params.push(query.month_year);
-  } else {
-    dateClause = " AND t.date >= $2::date AND t.date < ($2::date + INTERVAL '1 month')";
-    params.push(query.month_year ? `${query.month_year}-01` : from);
-  }
-
-  if (query.from && query.to) {
-    where.length = 0;
-    params.length = 0;
-    params.push(userId, query.from, query.to);
-    dateClause = ' AND t.date >= $2::date AND t.date <= $3::date';
-  }
+  const { range, from, to } = resolveRangeParams(query);
 
   const sql = `
     SELECT
@@ -91,15 +102,17 @@ async function getSummary(userId, query = {}) {
       COALESCE(SUM(CASE WHEN t.type = 'expense' AND t.is_debit = true THEN t.amount ELSE 0 END), 0) AS expense_so_far,
       COUNT(*)::int AS transaction_count
     FROM transactions t
-    WHERE ${where.join(' AND ')}${dateClause}
+    WHERE t.user_id = $1 AND t.date >= $2::date AND t.date <= $3::date
   `;
-  const result = await db.query(sql, params);
+  const result = await db.query(sql, [userId, from, to]);
   const row = result.rows[0] || {};
   const income = parseFloat(row.income_so_far || 0);
   const expense = parseFloat(row.expense_so_far || 0);
   const net = income - expense;
   return {
     range,
+    from,
+    to,
     income_so_far: income,
     expense_so_far: expense,
     net_so_far: net,
@@ -110,17 +123,9 @@ async function getSummary(userId, query = {}) {
 
 // Category breakdown with percentages (for doughnut / bars)
 async function getCategoryBreakdown(userId, query = {}) {
-  const { range } = resolveRangeParams(query);
-  const params = [userId];
-  let dateClause = '';
-
-  if (query.from && query.to) {
-    params.push(query.from, query.to);
-    dateClause = ' AND t.date >= $2::date AND t.date <= $3::date';
-  } else {
-    params.push(query.month_year ? query.month_year : new Date().toISOString().substring(0, 7));
-    dateClause = " AND TO_CHAR(t.date, 'YYYY-MM') = $2";
-  }
+  const { range, from, to } = resolveRangeParams(query);
+  const params = [userId, from, to];
+  const dateClause = ' AND t.date >= $2::date AND t.date <= $3::date';
 
   const sql = `
     SELECT
@@ -167,20 +172,11 @@ async function getCategoryBreakdown(userId, query = {}) {
 
 // Monthly / weekly / daily time series of income vs expense (trend charts)
 async function getTrends(userId, query = {}) {
-  const { range } = resolveRangeParams(query);
+  const { range, from, to } = resolveRangeParams(query);
   const labelSql = RANGE_LABEL_SQL[range] || RANGE_LABEL_SQL.monthly;
 
-  const params = [userId];
-  let dateClause = '';
-  const monthsBack = parseInt(query.months || '6', 10);
-
-  if (query.from && query.to) {
-    params.push(query.from, query.to);
-    dateClause = ' AND t.date >= $2::date AND t.date <= $3::date';
-  } else {
-    params.push(monthsBack);
-    dateClause = " AND t.date >= date_trunc('month', NOW()) - ($2 || ' months')::interval";
-  }
+  const params = [userId, from, to];
+  const dateClause = ' AND t.date >= $2::date AND t.date <= $3::date';
 
   const sql = `
     SELECT
@@ -196,6 +192,8 @@ async function getTrends(userId, query = {}) {
 
   return {
     range,
+    from,
+    to,
     trend: result.rows.map((r) => ({
       bucket: r.bucket,
       income: parseFloat(r.income || 0),
@@ -248,11 +246,26 @@ async function detectSubscriptions(userId) {
 // Spending spike detection vs previous equivalent window
 async function detectSpendingSpikes(userId, query = {}) {
   const current = await getSummary(userId, query);
-  const monthYear = query.month_year || new Date().toISOString().substring(0, 7);
-  const [year, month] = monthYear.split('-');
-  const prevMonth = new Date(Date.UTC(parseInt(year, 10), parseInt(month, 10) - 2, 1)).toISOString().substring(0, 7);
 
-  const prev = await getSummary(userId, { ...query, month_year: prevMonth });
+  let prevQuery;
+  if (query.startDate && query.endDate) {
+    // Compare an arbitrary custom range to the same-length window right before it.
+    const startMs = new Date(`${query.startDate}T00:00:00`).getTime();
+    const spanMs = new Date(`${query.endDate}T00:00:00`).getTime() - startMs;
+    const prevEnd = new Date(startMs - 86400000);
+    const prevStart = new Date(prevEnd.getTime() - spanMs);
+    prevQuery = {
+      startDate: prevStart.toISOString().substring(0, 10),
+      endDate: prevEnd.toISOString().substring(0, 10),
+    };
+  } else {
+    const monthYear = query.month_year || new Date().toISOString().substring(0, 7);
+    const [year, month] = monthYear.split('-');
+    prevQuery = {
+      month_year: new Date(Date.UTC(parseInt(year, 10), parseInt(month, 10) - 2, 1)).toISOString().substring(0, 7),
+    };
+  }
+  const prev = await getSummary(userId, prevQuery);
 
   const spikes = [];
   if (prev.expense_so_far > 0 && current.expense_so_far > prev.expense_so_far) {
@@ -261,7 +274,7 @@ async function detectSpendingSpikes(userId, query = {}) {
       spikes.push({
         type: 'spending_spike',
         title: 'Spending Spike Detected',
-        message: `You spent ₹${current.expense_so_far.toFixed(2)} this month — ${pct.toFixed(0)}% more than last month (₹${prev.expense_so_far.toFixed(2)}).`,
+        message: `You spent ₹${current.expense_so_far.toFixed(2)} in the selected period — ${pct.toFixed(0)}% more than the previous period (₹${prev.expense_so_far.toFixed(2)}).`,
         severity: pct >= 50 ? 'high' : 'medium',
       });
     }

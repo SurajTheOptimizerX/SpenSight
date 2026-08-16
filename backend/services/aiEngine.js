@@ -12,19 +12,24 @@ const analytics = require('./analyticsService');
 const CURRENCY = process.env.CURRENCY_SYMBOL || '₹';
 
 /**
- * Calculates dynamic 0-100 Financial Health Score for a user in a given YYYY-MM
+ * Calculates dynamic 0-100 Financial Health Score for a user in a given YYYY-MM.
+ * Optionally accepts a custom { startDate, endDate } (YYYY-MM-DD) window to score.
  */
-exports.calculateHealthScore = async (userId, monthYear) => {
+exports.calculateHealthScore = async (userId, monthYear, range = {}) => {
   try {
+    const { startDate, endDate } = range;
+    const useRange = Boolean(startDate && endDate);
+
     const totalsQuery = `
       SELECT
         COALESCE(SUM(CASE WHEN c.type = 'income' THEN t.amount ELSE 0 END), 0) AS total_income,
         COALESCE(SUM(CASE WHEN c.type = 'expense' THEN t.amount ELSE 0 END), 0) AS total_expense
       FROM transactions t
       LEFT JOIN categories c ON t.category_id = c.id
-      WHERE t.user_id = $1 AND TO_CHAR(t.date, 'YYYY-MM') = $2
+      WHERE t.user_id = $1 AND ${useRange ? 't.date >= $2::date AND t.date <= $3::date' : "TO_CHAR(t.date, 'YYYY-MM') = $2"}
     `;
-    const totalsRes = await db.query(totalsQuery, [userId, monthYear]);
+    const totalsParams = useRange ? [userId, startDate, endDate] : [userId, monthYear];
+    const totalsRes = await db.query(totalsQuery, totalsParams);
     const totalIncome = parseFloat(totalsRes.rows[0].total_income || 0);
     const totalExpense = parseFloat(totalsRes.rows[0].total_expense || 0);
 
@@ -137,8 +142,11 @@ exports.calculateHealthScore = async (userId, monthYear) => {
  *  - Budget threshold warnings (>80% and >100%)
  *  - Recurring subscription detection
  *  - Month-over-month spending spikes
+ * Optionally accepts a { startDate, endDate } window to scope the budget scan.
  */
-exports.generateAIInsights = async (userId, monthYear) => {
+exports.generateAIInsights = async (userId, monthYear, range = {}) => {
+  const { startDate, endDate } = range;
+  const useRange = Boolean(startDate && endDate);
   const insightsCreated = [];
 
   const insertInsight = async ({ type, title, message, severity }) => {
@@ -160,6 +168,12 @@ exports.generateAIInsights = async (userId, monthYear) => {
   };
 
   // 1. Budget threshold warnings
+  const txnDateFilter = useRange
+    ? 't.date >= $3::date AND t.date <= $4::date'
+    : "TO_CHAR(t.date, 'YYYY-MM') = $3";
+  const overbudgetParams = useRange
+    ? [userId, monthYear, startDate, endDate]
+    : [userId, monthYear, monthYear];
   const overbudgetQuery = `
     SELECT
       c.name AS category_name,
@@ -169,11 +183,11 @@ exports.generateAIInsights = async (userId, monthYear) => {
     JOIN categories c ON b.category_id = c.id
     LEFT JOIN transactions t ON b.category_id = t.category_id
       AND t.user_id = b.user_id
-      AND TO_CHAR(t.date, 'YYYY-MM') = $2
-    WHERE b.user_id = $1 AND b.month_year = $3
+      AND ${txnDateFilter}
+    WHERE b.user_id = $1 AND b.month_year = $2
     GROUP BY c.name, b.monthly_limit
   `;
-  const overbudgetRes = await db.query(overbudgetQuery, [userId, monthYear, monthYear]);
+  const overbudgetRes = await db.query(overbudgetQuery, overbudgetParams);
 
   for (const row of overbudgetRes.rows) {
     const limit = parseFloat(row.limit_amount);
@@ -208,8 +222,10 @@ exports.generateAIInsights = async (userId, monthYear) => {
     });
   }
 
-  // 3. Spending spike vs last month
-  const spikes = await analytics.detectSpendingSpikes(userId, { month_year: monthYear });
+  // 3. Spending spike vs previous window
+  const spikes = useRange
+    ? await analytics.detectSpendingSpikes(userId, { startDate, endDate })
+    : await analytics.detectSpendingSpikes(userId, { month_year: monthYear });
   for (const spike of spikes) {
     await insertInsight(spike);
   }

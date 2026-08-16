@@ -32,8 +32,11 @@ const getInsights = async (req, res) => {
     const userId = req.user.id;
     const monthYear = req.query.month_year || new Date().toISOString().substring(0, 7);
 
-    // Generate fresh alerts (idempotent via dedupe) then return all for the month
-    await aiEngine.generateAIInsights(userId, monthYear);
+    // Generate fresh alerts (idempotent via dedupe) then return all for the range
+    await aiEngine.generateAIInsights(userId, monthYear, {
+      startDate: req.query.startDate,
+      endDate: req.query.endDate,
+    });
 
     const result = await db.query(
       `SELECT id, type, title, message, severity, created_at

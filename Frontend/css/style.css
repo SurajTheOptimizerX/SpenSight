@@ -606,6 +606,94 @@ select.input-field {
   box-shadow: 0 4px 16px rgba(59, 130, 246, 0.2);
 }
 
+/* Date Range Picker */
+.date-range-picker { position: relative; }
+
+.date-range-trigger {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  height: 38px;
+  padding: 0 14px;
+  background: rgba(255, 255, 255, 0.05);
+  border: 1px solid var(--card-border);
+  border-radius: 10px;
+  color: var(--text-white);
+  font-size: 13px;
+  font-weight: 600;
+  cursor: pointer;
+  white-space: nowrap;
+  transition: var(--transition);
+}
+.date-range-trigger:hover {
+  border-color: var(--primary);
+  background: rgba(59, 130, 246, 0.12);
+  box-shadow: 0 4px 16px rgba(59, 130, 246, 0.18);
+}
+.date-range-trigger .icon { width: 16px; height: 16px; }
+.date-range-trigger .drp-chevron { color: var(--text-muted); }
+.date-range-trigger:hover .drp-chevron { color: var(--primary); }
+
+.date-range-popover {
+  position: absolute;
+  top: calc(100% + 8px);
+  right: 0;
+  z-index: 70;
+  width: 300px;
+  background: rgba(15, 23, 42, 0.97);
+  border: 1px solid var(--card-border-strong);
+  border-radius: var(--radius-md);
+  box-shadow: var(--shadow-card);
+  padding: 12px;
+  display: none;
+  backdrop-filter: blur(18px);
+  -webkit-backdrop-filter: blur(18px);
+}
+.date-range-popover.open { display: block; animation: drpIn 0.18s ease; }
+@keyframes drpIn {
+  from { opacity: 0; transform: translateY(-6px); }
+  to { opacity: 1; transform: none; }
+}
+
+.drp-presets { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; }
+.drp-preset {
+  height: 36px;
+  border: 1px solid var(--card-border);
+  border-radius: 10px;
+  background: rgba(255, 255, 255, 0.04);
+  color: var(--text-muted);
+  font-size: 12.5px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: var(--transition);
+}
+.drp-preset:hover {
+  color: var(--text-white);
+  border-color: var(--primary);
+  background: rgba(59, 130, 246, 0.15);
+}
+.drp-preset.active {
+  background: linear-gradient(135deg, rgba(59, 130, 246, 0.25), rgba(139, 92, 246, 0.25));
+  border-color: var(--primary);
+  color: #fff;
+  box-shadow: 0 4px 16px rgba(59, 130, 246, 0.2);
+}
+
+.drp-custom { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; margin-top: 12px; }
+.drp-custom[hidden] { display: none; }
+.drp-custom label {
+  display: block;
+  font-size: 11px;
+  color: var(--text-muted);
+  margin-bottom: 5px;
+  font-weight: 700;
+  letter-spacing: 0.4px;
+}
+.drp-custom .input-field { height: 38px; font-size: 13px; padding: 0 10px; }
+
+.drp-actions { display: flex; justify-content: flex-end; gap: 8px; margin-top: 14px; }
+.drp-actions .btn { height: 32px; padding: 0 14px; font-size: 12px; }
+
 /* Toggle switch */
 .toggle-row {
   display: flex;

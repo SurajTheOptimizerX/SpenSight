@@ -130,7 +130,35 @@
               <button class="range-chip active active-filter" data-range="monthly">MONTHLY</button>
               <button class="range-chip" data-range="yearly">YEARLY</button>
             </div>
-            <input type="month" id="monthPicker" class="input-field" style="width: 170px; height: 38px" />
+            <div class="date-range-picker" id="dateRangePicker">
+              <button type="button" class="date-range-trigger" id="dateRangeTrigger" title="Select date range">
+                <span data-icon="Calendar"></span>
+                <span id="dateRangeLabel">This Month</span>
+                <span class="drp-chevron" data-icon="ChevronDown"></span>
+              </button>
+              <div class="date-range-popover" id="dateRangePopover">
+                <div class="drp-presets">
+                  <button type="button" class="drp-preset" data-preset="this-month">This Month</button>
+                  <button type="button" class="drp-preset" data-preset="last-30">Last 30 Days</button>
+                  <button type="button" class="drp-preset" data-preset="ytd">Year to Date</button>
+                  <button type="button" class="drp-preset" data-preset="custom">Custom Range</button>
+                </div>
+                <div class="drp-custom" id="drpCustomFields" hidden>
+                  <div class="drp-field">
+                    <label for="drpStartDate">Start Date</label>
+                    <input type="date" id="drpStartDate" class="input-field" />
+                  </div>
+                  <div class="drp-field">
+                    <label for="drpEndDate">End Date</label>
+                    <input type="date" id="drpEndDate" class="input-field" />
+                  </div>
+                </div>
+                <div class="drp-actions">
+                  <button type="button" class="btn btn-ghost btn-sm" id="drpReset">Reset</button>
+                  <button type="button" class="btn btn-primary btn-sm" id="drpApply">Apply</button>
+                </div>
+              </div>
+            </div>
           </div>
         </div>
 
