@@ -316,6 +316,17 @@ function healthTag(score) {
 }
 
 function computeHealthBreakdown(health, budgets, categorySpend) {
+  // No-data guard: when the engine surfaced a neutral "No Data" state, do not
+  // fabricate a breakdown (sub-scores, pacing, 0/100 gauge) for an empty account.
+  if (health.score === null || health.label === 'No Data') {
+    return {
+      score: null,
+      status: 'NEUTRAL',
+      savings_rate: 0,
+      sub_scores: [],
+    };
+  }
+
   const score = Math.max(0, Math.min(100, Math.round(health.health_score || 0)));
 
   // Budget pacing: share of budgets currently within their limit.

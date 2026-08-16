@@ -28,6 +28,36 @@ exports.calculateHealthScore = async (userId, monthYear) => {
     const totalIncome = parseFloat(totalsRes.rows[0].total_income || 0);
     const totalExpense = parseFloat(totalsRes.rows[0].total_expense || 0);
 
+    const balanceQuery = `
+      SELECT COALESCE(SUM(balance), 0) AS total_balance
+      FROM accounts
+      WHERE user_id = $1
+    `;
+    const balanceRes = await db.query(balanceQuery, [userId]);
+    const totalBalance = parseFloat(balanceRes.rows[0].total_balance || 0);
+
+    // No-data guard: the user has no income, no expenses and no account
+    // balance for the period, so a fabricated score (e.g. 45/100 WARNING)
+    // would be misleading. Surface a neutral "No Data" state instead.
+    if (totalIncome === 0 && totalExpense === 0 && totalBalance === 0) {
+      // Self-heal any stale summary row left by the pre-guard code so the
+      // persisted state matches the neutral response we are about to return.
+      await db.query('DELETE FROM financial_health_summary WHERE user_id = $1 AND month_year = $2', [userId, monthYear]);
+
+      return {
+        score: null,
+        label: 'No Data',
+        status: 'NEUTRAL',
+        // Aliases so existing consumers reading DB-shaped fields stay safe.
+        health_score: null,
+        savings_rate: 0,
+        overall_status: 'NEUTRAL',
+        totalIncome,
+        totalExpense,
+        totalBalance,
+      };
+    }
+
     const budgetQuery = `
       SELECT
         b.monthly_limit AS limit_amount,
@@ -87,7 +117,15 @@ exports.calculateHealthScore = async (userId, monthYear) => {
     const healthRes = await db.query(upsertHealthQuery, [userId, score, savingsRate.toFixed(2), monthYear, status]);
 
     const saved = healthRes.rows[0];
-    return { ...saved, totalIncome, totalExpense };
+    return {
+      ...saved,
+      score: saved.health_score === null || saved.health_score === undefined ? null : Number(saved.health_score),
+      label: null,
+      status: saved.overall_status || 'Healthy',
+      totalIncome,
+      totalExpense,
+      totalBalance,
+    };
   } catch (error) {
     console.error('Calculate Health Score Error:', error);
     throw error;

@@ -298,7 +298,23 @@ document.addEventListener('DOMContentLoaded', () => {
 
   function renderHealth(h) {
     if (!h) return;
-    const score = h.score || 0;
+
+    if (h.score === null || h.score === undefined) {
+      // No financial data yet: neutral "N/A" instead of a fabricated 0/100.
+      $('healthScoreNumber').textContent = 'N/A';
+      const statusEl = $('healthScoreStatus');
+      statusEl.className = 'score-badge score-neutral';
+      statusEl.innerHTML = `${SpenIcons.icon('Upload')} Upload CSV to calculate`;
+      $('healthSavingsRate').textContent = '0%';
+      if (gaugeChart) {
+        gaugeChart.destroy();
+        gaugeChart = null;
+      }
+      $('healthBreakdownList').innerHTML = '';
+      return;
+    }
+
+    const score = h.score;
     $('healthScoreNumber').textContent = `${score}/100`;
 
     const statusEl = $('healthScoreStatus');
@@ -688,8 +704,8 @@ document.addEventListener('DOMContentLoaded', () => {
           <div style="flex:1;min-width:260px;background:#ffffff;border:1px solid #e5e9f2;border-radius:14px;padding:18px;box-sizing:border-box;">
             <div style="font-size:14px;font-weight:800;color:#0f172a;">Financial Health</div>
             <div style="display:flex;align-items:center;gap:10px;margin-top:10px;">
-              <span style="font-size:30px;font-weight:800;color:#3b82f6;">${fh.score || 0}<span style="font-size:14px;color:#64748b;">/100</span></span>
-              <span style="font-size:12px;font-weight:700;color:${fh.score >= 70 ? '#10b981' : fh.score >= 40 ? '#f59e0b' : '#ef4444'};background:${fh.score >= 70 ? '#ecfdf5' : fh.score >= 40 ? '#fffbeb' : '#fef2f2'};border-radius:999px;padding:4px 10px;">${escapeHtml(fh.status || 'Healthy')}</span>
+              <span style="font-size:30px;font-weight:800;color:#3b82f6;">${fh.score == null ? 'N/A' : fh.score}<span style="font-size:14px;color:#64748b;">${fh.score == null ? '' : '/100'}</span></span>
+              <span style="font-size:12px;font-weight:700;color:${fh.score == null ? '#64748b' : fh.score >= 70 ? '#10b981' : fh.score >= 40 ? '#f59e0b' : '#ef4444'};background:${fh.score == null ? '#f1f5f9' : fh.score >= 70 ? '#ecfdf5' : fh.score >= 40 ? '#fffbeb' : '#fef2f2'};border-radius:999px;padding:4px 10px;">${escapeHtml(fh.score == null ? 'No Data' : (fh.status || 'Healthy'))}</span>
             </div>
             <div style="font-size:12px;color:#64748b;margin-top:6px;">Savings rate <span style="font-weight:700;color:#0f172a;">${fh.savings_rate || 0}%</span></div>
           </div>

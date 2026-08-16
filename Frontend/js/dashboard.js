@@ -295,12 +295,25 @@ document.addEventListener('DOMContentLoaded', () => {
       // Health
       if (healthRes && healthRes.health_summary) {
         const summary = healthRes.health_summary;
-        $('healthScoreDisplay').textContent = `${summary.health_score} / 100`;
-        $('savingsRateDisplay').textContent = `${summary.savings_rate || 0}%`;
-        const badge = $('healthScoreBadge');
-        badge.textContent = summary.overall_status || 'Healthy';
-        badge.className = `score-badge score-${(summary.overall_status || 'healthy').toLowerCase()}`;
-        hydrateIcons(badge);
+        const noData = summary.health_score === null || summary.health_score === undefined || healthRes.label === 'No Data';
+
+        if (noData) {
+          // No financial data yet: neutral "N/A" instead of a fabricated
+          // score (e.g. "45/100 WARNING" for an empty account).
+          $('healthScoreDisplay').textContent = 'N/A';
+          $('savingsRateDisplay').textContent = '0%';
+          const badge = $('healthScoreBadge');
+          badge.innerHTML = '<span data-icon="Upload"></span> Upload CSV to calculate';
+          badge.className = 'score-badge score-neutral';
+          hydrateIcons(badge);
+        } else {
+          $('healthScoreDisplay').textContent = `${summary.health_score} / 100`;
+          $('savingsRateDisplay').textContent = `${summary.savings_rate || 0}%`;
+          const badge = $('healthScoreBadge');
+          badge.textContent = summary.overall_status || 'Healthy';
+          badge.className = `score-badge score-${(summary.overall_status || 'healthy').toLowerCase()}`;
+          hydrateIcons(badge);
+        }
       }
 
       // Insights / alerts

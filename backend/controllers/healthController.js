@@ -13,11 +13,16 @@ const getHealthScore = async (req, res) => {
         savings_rate: healthSummary.savings_rate,
         overall_status: healthSummary.overall_status,
       },
-      healthScore: Number(healthSummary.health_score) || 0,
+      score: healthSummary.score !== undefined && healthSummary.score !== null ? healthSummary.score : null,
+      label: healthSummary.label || null,
+      healthScore: healthSummary.health_score === null || healthSummary.health_score === undefined
+        ? null
+        : Number(healthSummary.health_score) || 0,
       savingsRatio: Number(healthSummary.savings_rate) || 0,
       totalIncome: healthSummary.totalIncome || 0,
       totalExpense: healthSummary.totalExpense || 0,
-      status: healthSummary.overall_status || 'Healthy',
+      totalBalance: healthSummary.totalBalance || 0,
+      status: healthSummary.status || healthSummary.overall_status || 'Healthy',
     });
   } catch (error) {
     console.error('Get Health Score Error:', error);
