@@ -32,8 +32,9 @@ const getBudgets = async (req, res) => {
       FROM categories c
       LEFT JOIN budgets b ON b.category_id = c.id AND b.user_id = $1 AND b.month_year = $2
       LEFT JOIN transactions t ON t.category_id = c.id AND t.user_id = $1 AND TO_CHAR(t.date, 'YYYY-MM') = $2
-      WHERE c.type = 'expense'
-      GROUP BY c.id, c.name, c.icon_name, c.color_code, b.id, b.monthly_limit
+        AND t.type = 'expense' AND t.is_debit = true
+       WHERE c.type = 'expense'
+       GROUP BY c.id, c.name, c.icon_name, c.color_code, b.id, b.monthly_limit
       ORDER BY b.monthly_limit DESC, c.name ASC
     `;
     const result = await db.query(query, [userId, monthYear]);
@@ -46,12 +47,13 @@ const getBudgets = async (req, res) => {
                b.monthly_limit,
                COALESCE(SUM(t.amount), 0) AS spent
         FROM budgets b
-        LEFT JOIN transactions t ON t.category_id = b.category_id
-          AND t.user_id = b.user_id AND TO_CHAR(t.date, 'YYYY-MM') = $2
-        WHERE b.user_id = $1 AND b.month_year = $3
+         LEFT JOIN transactions t ON t.category_id = b.category_id
+           AND t.user_id = b.user_id AND TO_CHAR(t.date, 'YYYY-MM') = $2
+           AND t.type = 'expense' AND t.is_debit = true
+         WHERE b.user_id = $1 AND b.month_year = $2
         GROUP BY b.category_id, b.monthly_limit
       `;
-      const prevRes = await db.query(prevQuery, [userId, monthYear, prevMonth]);
+      const prevRes = await db.query(prevQuery, [userId, prevMonth]);
       prevRes.rows.forEach((r) => {
         const surplus = Math.max(0, toFloat(r.monthly_limit) - toFloat(r.spent));
         carryMap[r.category_id] = surplus;

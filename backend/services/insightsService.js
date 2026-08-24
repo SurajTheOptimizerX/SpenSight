@@ -35,6 +35,8 @@ async function getOverview(userId, monthYear) {
     ? String(monthYear)
     : new Date().toISOString().substring(0, 7);
 
+  console.log(`[INSIGHTS] getOverview user=${userId} month=${mm}`);
+
   const [totals, categorySpend, budgets, expenses] = await Promise.all([
     loadTotals(userId, mm),
     loadCategorySpend(userId, mm),
@@ -42,7 +44,11 @@ async function getOverview(userId, monthYear) {
     loadExpenses(userId, mm),
   ]);
 
+  console.log(`[INSIGHTS] data loaded: income=${totals.income} expense=${totals.expense} categories=${categorySpend.length} budgets=${budgets.length} expense_txns=${expenses.length}`);
+
   const health = await aiEngine.calculateHealthScore(userId, mm);
+
+  console.log(`[INSIGHTS] health score=${health.score} status=${health.status}`);
 
   return {
     meta: {
@@ -74,14 +80,14 @@ async function loadTotals(userId, monthYear) {
       COALESCE(SUM(CASE WHEN t.type = 'income' OR (t.type = 'expense' AND t.is_debit = false) THEN t.amount ELSE 0 END), 0) AS income,
       COALESCE(SUM(CASE WHEN t.type = 'expense' AND t.is_debit = true THEN t.amount ELSE 0 END), 0) AS expense
     FROM transactions t
-    WHERE t.user_id = $1 AND TO_CHAR(t.date, 'YYYY-MM') = $2
+    WHERE t.user_id = $1 AND t.type != 'transfer' AND TO_CHAR(t.date, 'YYYY-MM') = $2
   `;
   const res = await db.query(sql, [userId, monthYear]);
   const row = res.rows[0] || {};
-  return {
-    income: parseFloat(row.income || 0),
-    expense: parseFloat(row.expense || 0),
-  };
+  const income = parseFloat(row.income || 0);
+  const expense = parseFloat(row.expense || 0);
+  console.log(`[INSIGHTS] loadTotals user=${userId} month=${monthYear} => income=${income} expense=${expense} (SQL: ${sql.replace(/\s+/g, ' ').trim()})`);
+  return { income, expense };
 }
 
 async function loadCategorySpend(userId, monthYear) {

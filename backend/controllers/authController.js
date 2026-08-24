@@ -132,7 +132,7 @@ const login = async (req, res) => {
     const user = userResult.rows[0];
     const isMatch = await bcrypt.compare(password, user.password_hash);
     if (!isMatch) {
-      return res.status(400).json({ error: 'Invalid email or password.' });
+      return res.status(401).json({ error: 'Invalid email or password.' });
     }
 
     // Verification gate is temporarily bypassed — accounts are auto-verified

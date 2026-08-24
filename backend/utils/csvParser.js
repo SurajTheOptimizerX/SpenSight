@@ -4,10 +4,13 @@ const csv = require('csv-parser');
 /**
  * Parses and normalizes varying bank statement CSV headers into a
  * standard object array with debit/credit (income/expense) detection.
+ * Resolves { rows, malformed } so callers can report silently-skipped
+ * invalid rows (e.g. missing / zero / non-numeric amounts) to the user.
  */
 exports.parseBankCSV = (filePath) => {
   return new Promise((resolve, reject) => {
     const results = [];
+    let malformed = 0;
 
     fs.createReadStream(filePath)
       .pipe(csv())
@@ -73,7 +76,10 @@ exports.parseBankCSV = (filePath) => {
           isDebit = false;
         }
 
-        if (!amount || amount <= 0) return;
+        if (!amount || amount <= 0) {
+          malformed += 1;
+          return;
+        }
 
         // Parse dates in common formats (DD/MM/YYYY, MM/DD/YYYY, YYYY-MM-DD)
         let parsedDate = new Date(rawDate);
@@ -104,7 +110,7 @@ exports.parseBankCSV = (filePath) => {
       })
       .on('end', () => {
         if (fs.existsSync(filePath)) fs.unlinkSync(filePath);
-        resolve(results);
+        resolve({ rows: results, malformed });
       })
       .on('error', (err) => {
         if (fs.existsSync(filePath)) fs.unlinkSync(filePath);

@@ -103,16 +103,16 @@ function formatDateKey(value) {
  * @param {string} filePath - path to the uploaded CSV
  * @param {string} [mode] - 'replace' wipes previous CSV imports first;
  *                          'merge' (default) skips rows that already exist.
- * @returns {Promise<{count: number, skipped: number, categoryIds: number[], netBalance: number}>}
+ * @returns {Promise<{count: number, skipped: number, malformed: number, categoryIds: number[], netBalance: number}>}
  */
 async function processCsvFile(userId, filePath, mode = 'merge') {
   if (mode === 'replace') {
     await removeImportedForUser(userId);
   }
 
-  const parsed = await parseBankCSV(filePath);
+  const { rows: parsed, malformed } = await parseBankCSV(filePath);
   if (parsed.length === 0) {
-    return { count: 0, skipped: 0, categoryIds: [], netBalance: 0 };
+    return { count: 0, skipped: 0, malformed, categoryIds: [], netBalance: 0 };
   }
 
   const existingKeys = mode === 'replace' ? null : await existingTransactionKeys(userId);
@@ -217,7 +217,7 @@ async function processCsvFile(userId, filePath, mode = 'merge') {
   }
 
   await invalidateUserCache(userId);
-  return { count: rows.length, skipped, categoryIds, netBalance };
+  return { count: rows.length, skipped, malformed, categoryIds, netBalance };
 }
 
 module.exports = { processCsvFile, categoryIdByName, removeImportedForUser };

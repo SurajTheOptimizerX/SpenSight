@@ -30,7 +30,7 @@ async function safeCategoryId(categoryId) {
   if (id) {
     const cat = await db.query('SELECT name FROM categories WHERE id = $1', [id]);
     if (cat.rows.length > 0 && !EDGE_CATEGORY_RE.test(cat.rows[0].name)) {
-      return cat.rows[0].id;
+      return id;
     }
   }
   return getFallbackCategoryId();
@@ -258,8 +258,13 @@ const uploadCsv = async (req, res) => {
       if (result.skipped > 0) {
         message += ` ${result.skipped} duplicate${result.skipped === 1 ? '' : 's'} skipped.`;
       }
+      if (result.malformed > 0) {
+        message += ` ${result.malformed} malformed row${result.malformed === 1 ? '' : 's'} ignored.`;
+      }
     } else if (result.skipped > 0) {
       message = `No new transactions — all ${result.skipped} row${result.skipped === 1 ? '' : 's'} were duplicates.`;
+    } else if (result.malformed > 0) {
+      message = `No valid rows found — ${result.malformed} malformed row${result.malformed === 1 ? '' : 's'} ignored.`;
     } else {
       message = 'No valid rows found in the uploaded file.';
     }
@@ -268,6 +273,7 @@ const uploadCsv = async (req, res) => {
       message,
       count: result.count,
       skipped: result.skipped,
+      malformed: result.malformed,
       categoryIds: result.categoryIds,
     });
   } catch (error) {

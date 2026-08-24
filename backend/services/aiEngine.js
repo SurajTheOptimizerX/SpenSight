@@ -26,7 +26,8 @@ exports.calculateHealthScore = async (userId, monthYear, range = {}) => {
         COALESCE(SUM(CASE WHEN c.type = 'expense' THEN t.amount ELSE 0 END), 0) AS total_expense
       FROM transactions t
       LEFT JOIN categories c ON t.category_id = c.id
-      WHERE t.user_id = $1 AND ${useRange ? 't.date >= $2::date AND t.date <= $3::date' : "TO_CHAR(t.date, 'YYYY-MM') = $2"}
+      WHERE t.user_id = $1 AND t.type != 'transfer'
+        AND ${useRange ? 't.date >= $2::date AND t.date <= $3::date' : "TO_CHAR(t.date, 'YYYY-MM') = $2"}
     `;
     const totalsParams = useRange ? [userId, startDate, endDate] : [userId, monthYear];
     const totalsRes = await db.query(totalsQuery, totalsParams);
@@ -66,11 +67,12 @@ exports.calculateHealthScore = async (userId, monthYear, range = {}) => {
     const budgetQuery = `
       SELECT
         b.monthly_limit AS limit_amount,
-        COALESCE(SUM(t.amount), 0) AS actual_spend
+        COALESCE(SUM(CASE WHEN t.type = 'expense' AND t.is_debit = true THEN t.amount ELSE 0 END), 0) AS actual_spend
       FROM budgets b
       LEFT JOIN transactions t ON b.category_id = t.category_id
         AND t.user_id = b.user_id
         AND TO_CHAR(t.date, 'YYYY-MM') = $2
+        AND t.type = 'expense' AND t.is_debit = true
       WHERE b.user_id = $1 AND b.month_year = $3
       GROUP BY b.id, b.monthly_limit
     `;
@@ -178,11 +180,12 @@ exports.generateAIInsights = async (userId, monthYear, range = {}) => {
     SELECT
       c.name AS category_name,
       b.monthly_limit AS limit_amount,
-      COALESCE(SUM(t.amount), 0) AS total_spent
+      COALESCE(SUM(CASE WHEN t.type = 'expense' AND t.is_debit = true THEN t.amount ELSE 0 END), 0) AS total_spent
     FROM budgets b
     JOIN categories c ON b.category_id = c.id
     LEFT JOIN transactions t ON b.category_id = t.category_id
       AND t.user_id = b.user_id
+      AND t.type = 'expense' AND t.is_debit = true
       AND ${txnDateFilter}
     WHERE b.user_id = $1 AND b.month_year = $2
     GROUP BY c.name, b.monthly_limit
@@ -330,11 +333,12 @@ async function fetchBudgets(userId, monthYear) {
     SELECT
       c.name AS category_name,
       COALESCE(b.monthly_limit, 0) AS limit_amount,
-      COALESCE(SUM(t.amount), 0) AS total_spent
+      COALESCE(SUM(CASE WHEN t.type = 'expense' AND t.is_debit = true THEN t.amount ELSE 0 END), 0) AS total_spent
     FROM budgets b
     JOIN categories c ON b.category_id = c.id
     LEFT JOIN transactions t ON b.category_id = t.category_id
       AND t.user_id = b.user_id AND TO_CHAR(t.date, 'YYYY-MM') = $2
+      AND t.type = 'expense' AND t.is_debit = true
     WHERE b.user_id = $1 AND b.month_year = $3
     GROUP BY c.name, b.monthly_limit
   `,

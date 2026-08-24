@@ -137,6 +137,7 @@ document.addEventListener('DOMContentLoaded', () => {
         if (expectNum) {
           if (t === '-') {
             nums.push(0);
+            ops.push('-');
             continue;
           }
           return NaN;
