@@ -338,6 +338,14 @@
 
         <!-- VIEW 2: RECORDS -->
         <div id="recordsView" class="view-section">
+          <!-- Click-through filter chip (set from Budgets category cards) -->
+          <div id="recordsFilterChip" class="records-filter-chip" style="display: none;">
+            <span class="chip-filter-icon" data-icon="Filter"></span>
+            <span id="recordsFilterText"></span>
+            <button id="clearRecordsFilterBtn" class="chip-clear-btn" type="button" title="Clear category filter">
+              <span data-icon="X"></span> Clear Filter
+            </button>
+          </div>
           <div class="dashboard-card">
             <h3 style="font-size: 15px; display: flex; align-items: center; gap: 8px">
               <span data-icon="ClipboardList"></span> Transaction Ledger
@@ -765,6 +773,82 @@
         </div>
         <button id="saveCategoryBtn" class="btn btn-success btn-lg" style="width: 100%">
           <span data-icon="Check"></span> CREATE CATEGORY
+        </button>
+      </div>
+    </div>
+
+    <!-- CATEGORY ANALYSIS MODAL (deep-dive from Budgets card click) -->
+    <div id="categoryAnalysisModal" class="modal-overlay" style="z-index: 260">
+      <div class="modal-card cat-analysis-card">
+        <div class="cat-analysis-hero">
+          <div id="catAnalysisIcon" class="category-circle-icon cat-analysis-icon"><span data-icon="Tag"></span></div>
+          <div class="cat-analysis-headline">
+            <span class="cat-analysis-kicker">CATEGORY ANALYSIS</span>
+            <h3 id="catAnalysisName">—</h3>
+            <span id="catAnalysisWindow" class="cat-analysis-window"></span>
+          </div>
+          <button id="closeCatAnalysisBtn" class="modal-close" aria-label="Close"></button>
+        </div>
+
+        <div class="cat-budget-line">
+          <div class="cat-budget-nums">
+            <strong id="catAnalysisSpent">₹0.00</strong>
+            <span class="cat-budget-sep">/</span>
+            <span id="catAnalysisLimit">₹0.00</span>
+          </div>
+          <span id="catAnalysisUtilBadge" class="cat-util-badge"></span>
+        </div>
+        <div class="budget-bar-bg">
+          <div id="catAnalysisBar" class="budget-bar-fill"></div>
+        </div>
+
+        <div class="cat-metrics-grid">
+          <div class="cat-metric-card">
+            <span class="cat-metric-label"><span data-icon="Gauge"></span> Utilization</span>
+            <strong id="catMetricUtil">0%</strong>
+          </div>
+          <div class="cat-metric-card">
+            <span class="cat-metric-label"><span data-icon="CalendarDays"></span> Daily Avg</span>
+            <strong id="catMetricDailyAvg">₹0.00</strong>
+          </div>
+          <div class="cat-metric-card">
+            <span class="cat-metric-label"><span data-icon="Crown"></span> Highest Txn</span>
+            <strong id="catMetricMax">₹0.00</strong>
+          </div>
+          <div class="cat-metric-card">
+            <span class="cat-metric-label"><span data-icon="Receipt"></span> Transactions</span>
+            <strong id="catMetricCount">0</strong>
+          </div>
+        </div>
+
+        <div class="cat-section-title"><span data-icon="TrendingUp"></span> Spending Trend</div>
+        <div class="cat-chart-wrap"><canvas id="catAnalysisChart"></canvas></div>
+
+        <div class="cat-section-title"><span data-icon="Wallet"></span> Account Split</div>
+        <div id="catAccountSplit" class="cat-account-split"></div>
+
+        <div class="cat-section-title cat-ledger-head">
+          <span><span data-icon="ClipboardList"></span> Transactions (<span id="catTxnCount">0</span>)</span>
+          <input type="text" id="catTxnSearch" class="input-field cat-search-input" placeholder="Search description / notes / account..." />
+        </div>
+        <div class="table-wrap cat-table-wrap">
+          <table>
+            <thead>
+              <tr>
+                <th class="cat-sortable" data-sort="date">Date <span class="sort-arrow"></span></th>
+                <th>Description / Notes</th>
+                <th class="cat-sortable" data-sort="account">Account <span class="sort-arrow"></span></th>
+                <th class="cat-sortable" data-sort="amount">Amount <span class="sort-arrow"></span></th>
+              </tr>
+            </thead>
+            <tbody id="catAnalysisTableBody">
+              <tr><td colspan="4" style="text-align:center;color:var(--text-muted)">Loading...</td></tr>
+            </tbody>
+          </table>
+        </div>
+
+        <button id="catOpenRecordsBtn" class="btn btn-primary btn-lg cat-open-records-btn">
+          <span data-icon="ExternalLink"></span> OPEN IN RECORDS
         </button>
       </div>
     </div>

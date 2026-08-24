@@ -2575,3 +2575,235 @@ body.ai-active #aiView {
     overflow: visible !important;
   }
 }
+/* ---------- Budget card -> Records click-through filtering ---------- */
+/* Budgeted category cards act as drill-down links into the Records view */
+.budget-card-static {
+  cursor: pointer;
+  outline: none;
+}
+
+.budget-card-static:hover {
+  border-color: var(--primary);
+  box-shadow: 0 0 0 1px var(--primary-glow), 0 6px 20px rgba(59, 130, 246, 0.15);
+  transform: translateY(-1px);
+}
+
+.budget-card-static:focus-visible {
+  border-color: var(--primary);
+  box-shadow: 0 0 0 2px var(--primary-glow);
+}
+
+.budget-card-static .budget-inline-actions {
+  position: relative;
+  z-index: 2; /* keep Edit / Remove above the clickable card surface */
+}
+
+/* "Filtered by" chip shown above the Records ledger */
+.records-filter-chip {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 10px 14px;
+  margin-bottom: 14px;
+  background: linear-gradient(135deg, rgba(59, 130, 246, 0.14), rgba(139, 92, 246, 0.1));
+  border: 1px solid var(--primary-glow);
+  border-radius: var(--radius-md);
+  color: var(--text-white);
+  font-size: 13px;
+  font-weight: 600;
+  animation: chipIn 0.25s cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+@keyframes chipIn {
+  from { opacity: 0; transform: translateY(-6px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+
+.records-filter-chip .chip-filter-icon {
+  display: inline-flex;
+  align-items: center;
+  color: var(--primary);
+}
+
+.records-filter-chip .chip-filter-icon svg {
+  width: 15px;
+  height: 15px;
+}
+
+.chip-clear-btn {
+  margin-left: auto;
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  padding: 5px 12px;
+  font-size: 12px;
+  font-weight: 700;
+  color: #fca5a5;
+  background: rgba(239, 68, 68, 0.12);
+  border: 1px solid rgba(239, 68, 68, 0.35);
+  border-radius: 20px;
+  cursor: pointer;
+  transition: var(--transition);
+}
+
+.chip-clear-btn:hover {
+  background: rgba(239, 68, 68, 0.22);
+  color: #fff;
+}
+
+.chip-clear-btn svg {
+  width: 13px;
+  height: 13px;
+}
+
+/* ---------- Category Deep-Dive Analysis Modal ---------- */
+.cat-analysis-card {
+  width: min(720px, 94vw);
+  max-height: 88vh;
+  overflow-y: auto;
+}
+
+.cat-analysis-hero {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  padding-bottom: 14px;
+  border-bottom: 1px solid var(--card-border);
+  position: relative;
+}
+
+.cat-analysis-icon {
+  width: 52px;
+  height: 52px;
+  flex-shrink: 0;
+}
+
+.cat-analysis-icon svg { width: 24px; height: 24px; }
+
+.cat-analysis-headline { min-width: 0; }
+
+.cat-analysis-kicker {
+  font-size: 10px;
+  letter-spacing: 2px;
+  color: var(--text-muted);
+  font-weight: 700;
+}
+
+.cat-analysis-headline h3 {
+  font-size: 20px;
+  color: var(--text-white);
+  margin: 2px 0;
+}
+
+.cat-analysis-window { font-size: 12px; color: var(--text-muted); }
+
+.cat-budget-line {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+  margin-top: 14px;
+}
+
+.cat-budget-nums { display: flex; align-items: baseline; gap: 6px; font-size: 15px; }
+.cat-budget-nums strong { font-size: 22px; }
+.cat-budget-sep, #catAnalysisLimit { color: var(--text-muted); }
+
+.cat-util-badge {
+  padding: 5px 12px;
+  border-radius: 20px;
+  font-size: 12px;
+  font-weight: 700;
+}
+.cat-util-badge.ok { background: rgba(16,185,129,.14); color: var(--accent-green); border: 1px solid rgba(16,185,129,.35); }
+.cat-util-badge.over { background: rgba(239,68,68,.14); color: var(--accent-red); border: 1px solid rgba(239,68,68,.35); }
+.cat-util-badge:empty { visibility: hidden; }
+
+.cat-metrics-grid {
+  display: grid;
+  grid-template-columns: repeat(4, 1fr);
+  gap: 10px;
+  margin-top: 14px;
+}
+
+.cat-metric-card {
+  background: rgba(255,255,255,.03);
+  border: 1px solid var(--card-border);
+  border-radius: var(--radius-md);
+  padding: 10px 12px;
+  display: flex;
+  flex-direction: column;
+  gap: 5px;
+  min-width: 0;
+}
+
+.cat-metric-card strong { font-size: 17px; color: var(--text-white); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+
+.cat-metric-label {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 11px;
+  color: var(--text-muted);
+  white-space: nowrap;
+}
+
+.cat-metric-label svg { width: 13px; height: 13px; }
+
+@media (max-width: 640px) {
+  .cat-metrics-grid { grid-template-columns: repeat(2, 1fr); }
+}
+
+.cat-section-title {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin: 18px 0 10px;
+  font-size: 13px;
+  font-weight: 700;
+  color: var(--text-white);
+}
+
+.cat-section-title svg { width: 15px; height: 15px; color: var(--primary); }
+
+.cat-chart-wrap { height: 190px; }
+
+.cat-account-split { display: flex; flex-direction: column; gap: 9px; }
+.cat-split-empty { color: var(--text-muted); font-size: 13px; }
+
+.cat-split-bar {
+  display: flex;
+  height: 12px;
+  border-radius: 8px;
+  overflow: hidden;
+  gap: 2px;
+  background: rgba(255,255,255,.04);
+}
+
+.cat-split-row {
+  display: flex;
+  align-items: center;
+  gap: 9px;
+  font-size: 13px;
+}
+
+.cat-split-dot { width: 10px; height: 10px; border-radius: 50%; flex-shrink: 0; }
+.cat-split-name { color: var(--text-muted); flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.cat-split-amt { color: var(--text-muted); font-size: 12px; }
+
+.cat-ledger-head { justify-content: space-between; flex-wrap: wrap; }
+
+.cat-search-input {
+  width: 240px;
+  max-width: 100%;
+  padding: 8px 12px !important;
+  font-size: 12px !important;
+  height: auto !important;
+}
+
+.cat-table-wrap { max-height: 260px; overflow-y: auto; border-radius: var(--radius-md); }
+
+#categoryAnalysisModal .cat-sortable { cursor: pointer; user-select: none; }
+#categoryAnalysisModal .sort-arrow { color: var(--primary); font-size: 11px; }
+
+.cat-open-records-btn { width: 100%; margin-top: 16px; }

@@ -23,6 +23,8 @@ document.addEventListener('DOMContentLoaded', () => {
     // window falls back to the range chip / monthYear (current month, etc.).
     dateRange: null,
     carryOver: false,
+    // Click-through filter from Budgets -> Records (null = show everything)
+    recordsCategoryFilter: null,
     selectedAccountId: null,
     selectedToAccountId: null,
     selectedCategoryId: null,
@@ -587,9 +589,15 @@ document.addEventListener('DOMContentLoaded', () => {
     tbody.innerHTML = `<tr><td colspan="7" style="text-align: center; color: var(--text-muted);">Loading ledger...</td></tr>`;
 
     try {
-      const txnRes = await apiRequest(`/transactions?${filterQuery()}`, 'GET', null, true);
+      // Respect the active global date window (filterQuery) and, when set,
+      // narrow the ledger to the category clicked on a Budgets card.
+      let query = filterQuery();
+      const f = state.recordsCategoryFilter;
+      if (f && f.categoryId) query += `&category_id=${encodeURIComponent(f.categoryId)}`;
+      const txnRes = await apiRequest(`/transactions?${query}`, 'GET', null, true);
       const txs = txnRes && txnRes.transactions ? txnRes.transactions : [];
       state.transactions = txs;
+      updateRecordsFilterChip(); // refresh spent/limit context after data loads
       renderTransactionTable(tbody, txs);
     } catch (error) {
       tbody.innerHTML =
@@ -812,6 +820,11 @@ document.addEventListener('DOMContentLoaded', () => {
 
           const div = document.createElement('div');
           div.className = 'budget-card budget-card-static';
+          div.setAttribute('data-category-id', b.category_id);
+          div.setAttribute('data-category-name', b.category_name);
+          div.setAttribute('role', 'button');
+          div.setAttribute('tabindex', '0');
+          div.title = `View ${b.category_name} transactions in Records`;
           div.innerHTML = `
             <div class="budget-card-head">
               <div class="budget-card-title">
@@ -898,7 +911,10 @@ document.addEventListener('DOMContentLoaded', () => {
       });
 
       document.querySelectorAll('.edit-budget-btn').forEach((btn) => {
-        btn.addEventListener('click', () => {
+        btn.addEventListener('click', (e) => {
+          // Action button, not navigation: keep the card-level click-through
+          // handler from firing.
+          e.stopPropagation();
           const id = btn.getAttribute('data-id');
           const catName = btn.getAttribute('data-name');
           const currentLimit = btn.getAttribute('data-limit');
@@ -921,7 +937,10 @@ document.addEventListener('DOMContentLoaded', () => {
       });
 
       document.querySelectorAll('.remove-budget-btn').forEach((btn) => {
-        btn.addEventListener('click', () => {
+        btn.addEventListener('click', (e) => {
+          // Action button, not navigation: keep the card-level click-through
+          // handler from firing.
+          e.stopPropagation();
           const id = btn.getAttribute('data-id');
           const catName = btn.getAttribute('data-name');
           if (!id) return;
@@ -940,6 +959,355 @@ document.addEventListener('DOMContentLoaded', () => {
     } catch (e) {
       console.error('Load Budgets Error:', e);
     }
+  }
+
+  // ---------- Budget card -> Records click-through filtering ----------
+  // Delegated once on the container (cards are re-rendered on every load).
+  // Clicking anywhere on a budgeted category card jumps to the Records
+  // ledger pre-filtered to that category; the Edit / Remove action buttons
+  // stopPropagation() so they never trigger navigation.
+  const budgetedCardsContainer = $('budgetedCategoriesList');
+  if (budgetedCardsContainer) {
+    budgetedCardsContainer.addEventListener('click', (e) => {
+      if (e.target.closest('.edit-budget-btn') || e.target.closest('.remove-budget-btn')) return;
+      const card = e.target.closest('.budget-card-static');
+      if (!card) return;
+      const catId = parseInt(card.getAttribute('data-category-id'), 10);
+      const catName = card.getAttribute('data-category-name') || '';
+      if (!catId) return;
+      openCategoryAnalysis(catId, catName);
+    });
+    budgetedCardsContainer.addEventListener('keydown', (e) => {
+      if (e.key !== 'Enter' && e.key !== ' ') return;
+      const card = e.target.closest('.budget-card-static');
+      if (!card || e.target.closest('button')) return;
+      e.preventDefault();
+      openCategoryAnalysis(
+        parseInt(card.getAttribute('data-category-id'), 10),
+        card.getAttribute('data-category-name') || ''
+      );
+    });
+  }
+
+  function openRecordsFilteredByCategory(categoryId, categoryName) {
+    state.recordsCategoryFilter = { categoryId, categoryName };
+    updateRecordsFilterChip();
+    setActiveView('recordsView'); // refreshActiveViewData -> loadAllTransactions applies the filter
+    showToast(`Showing ${categoryName} transactions for the selected period.`, 'info');
+  }
+
+  // Chip shows live spent/limit from the most recent budgets payload so the
+  // user sees exactly which slice of the budget they are inspecting.
+  function updateRecordsFilterChip() {
+    const chip = $('recordsFilterChip');
+    if (!chip) return;
+    const f = state.recordsCategoryFilter;
+    if (!f) {
+      chip.style.display = 'none';
+      return;
+    }
+    let context = '';
+    const b = (state.budgets || []).find((x) => String(x.category_id) === String(f.categoryId));
+    if (b) {
+      const limit = parseFloat(b.effective_limit || b.limit_amount || 0);
+      const spent = parseFloat(b.total_spent || 0);
+      context = ` (${money(spent)} / ${money(limit)})`;
+    }
+    $('recordsFilterText').textContent = `Filtered by: ${f.categoryName}${context}`;
+    chip.style.display = 'flex';
+  }
+
+  const clearRecordsFilterBtn = $('clearRecordsFilterBtn');
+  if (clearRecordsFilterBtn) {
+    clearRecordsFilterBtn.addEventListener('click', () => {
+      state.recordsCategoryFilter = null;
+      updateRecordsFilterChip();
+      loadAllTransactions();
+      showToast('Category filter cleared.');
+    });
+  }
+
+  // ---------- Category Deep-Dive Analysis Modal ----------
+  state.catAnalysis = { txns: [], sortKey: 'date', sortDir: 'desc', search: '', categoryId: null, categoryName: '' };
+
+  async function openCategoryAnalysis(categoryId, categoryName) {
+    const modal = $('categoryAnalysisModal');
+    if (!modal) return;
+    state.catAnalysis = {
+      txns: [],
+      sortKey: 'date',
+      sortDir: 'desc',
+      search: '',
+      categoryId,
+      categoryName,
+    };
+    $('catTxnSearch').value = '';
+
+    // Hero identity from the budgets payload (icon / color / limits)
+    const b = (state.budgets || []).find((x) => String(x.category_id) === String(categoryId));
+    const color = b && b.color_code ? b.color_code : '#3b82f6';
+    const iconEl = $('catAnalysisIcon');
+    iconEl.style.background = `${color}22`;
+    iconEl.style.color = color;
+    iconEl.innerHTML = `<span data-icon="${escapeHtml((b && b.icon_name) || 'Tag')}"></span>`;
+    hydrateIcons(iconEl);
+    $('catAnalysisName').textContent = categoryName;
+    $('catAnalysisWindow').textContent = isCustomRange()
+      ? `${dateOnly(state.dateRange.startDate)} → ${dateOnly(state.dateRange.endDate)}`
+      : `${state.range === 'yearly' ? 'Year' : 'Month'} · ${state.monthYear}`;
+
+    modal.classList.add('active');
+
+    try {
+      const txnRes = await apiRequest(`/transactions?${filterQuery()}&category_id=${encodeURIComponent(categoryId)}`, 'GET', null, true);
+      state.catAnalysis.txns = txnRes && txnRes.transactions ? txnRes.transactions.filter((t) => t.type === 'expense') : [];
+    } catch (err) {
+      showToast(err.message || 'Failed to load category transactions.', 'error');
+      state.catAnalysis.txns = [];
+    }
+
+    renderCatAnalysisSummary(b, color);
+    renderCatTrendChart(color);
+    renderCatAccountSplit();
+    renderCatTable();
+  }
+
+  function closeCategoryAnalysis() {
+    const modal = $('categoryAnalysisModal');
+    if (modal) modal.classList.remove('active');
+  }
+
+  function renderCatAnalysisSummary(budget, color) {
+    const txns = state.catAnalysis.txns;
+    const spent = txns.reduce((s, t) => s + parseFloat(t.amount || 0), 0);
+    const limitRaw = budget ? parseFloat(budget.effective_limit || budget.limit_amount || 0) : 0;
+    const pct = limitRaw > 0 ? Math.min(999, Math.round((spent / limitRaw) * 100)) : 0;
+    const remaining = limitRaw - spent;
+    const isOver = limitRaw > 0 && spent > limitRaw;
+
+    $('catAnalysisSpent').textContent = money(spent);
+    $('catAnalysisLimit').textContent = money(limitRaw);
+    $('catAnalysisSpent').style.color = isOver ? 'var(--accent-red)' : 'var(--accent-green)';
+    $('catAnalysisUtilBadge').textContent =
+      limitRaw <= 0 ? 'NO BUDGET' : isOver ? `OVER BY ${money(Math.abs(remaining))}` : `${money(remaining)} LEFT`;
+    $('catAnalysisUtilBadge').className = `cat-util-badge ${limitRaw <= 0 ? '' : isOver ? 'over' : 'ok'}`;
+
+    const bar = $('catAnalysisBar');
+    bar.style.width = `${Math.min(100, pct)}%`;
+    bar.className = `budget-bar-fill ${isOver ? 'over' : pct >= 80 ? 'warning' : ''}`;
+
+    $('catMetricUtil').textContent = `${pct}%`;
+    $('catMetricUtil').style.color = isOver ? 'var(--accent-red)' : pct >= 80 ? 'var(--accent-amber)' : 'var(--accent-green)';
+
+    // Daily average across the active window (elapsed days only for the
+    // current period so a fresh month doesn't read as near-zero spend).
+    const win = windowBounds();
+    const start = new Date(`${win.startDate}T00:00:00`);
+    let end = new Date(`${win.endDate}T00:00:00`);
+    const today = new Date(toISODate(new Date()) + 'T00:00:00');
+    if (today < end) end = today;
+    const days = Math.max(1, Math.round((end - start) / 86400000) + 1);
+    $('catMetricDailyAvg').textContent = money(spent / days);
+
+    const maxTxn = txns.reduce((m, t) => (parseFloat(t.amount || 0) > m ? parseFloat(t.amount) : m), 0);
+    $('catMetricMax').textContent = money(maxTxn);
+    $('catMetricCount').textContent = String(txns.length);
+  }
+
+  function catTrendBuckets() {
+    // Day-by-day for windows up to ~2 months, week-by-week beyond that.
+    const win = windowBounds();
+    const start = new Date(`${win.startDate}T00:00:00`);
+    const end = new Date(`${win.endDate}T00:00:00`);
+    const daily = (end - start) / 86400000 <= 62;
+    const buckets = new Map();
+    if (daily) {
+      for (let d = new Date(start); d <= end; d.setDate(d.getDate() + 1)) {
+        buckets.set(toISODate(d), 0);
+      }
+      return { labels: [...buckets.keys()], values: [...buckets.values()], mode: 'day' };
+    }
+    for (let d = new Date(start); d <= end; d.setDate(d.getDate() + 7)) {
+      buckets.set(toISODate(d), 0);
+    }
+    return { labels: [...buckets.keys()], values: [...buckets.values()], mode: 'week' };
+  }
+
+  function renderCatTrendChart(color) {
+    const canvas = $('catAnalysisChart');
+    if (!canvas) return;
+    if (state.charts.catAnalysis) state.charts.catAnalysis.destroy();
+
+    const { labels, values, mode } = catTrendBuckets();
+    const starts = labels.map((l) => new Date(`${l}T00:00:00`).getTime());
+    state.catAnalysis.txns.forEach((t) => {
+      const d = dateOnly(t.transaction_date);
+      let idx = labels.indexOf(d);
+      if (idx < 0 && mode === 'week') {
+        // Snap a mid-week transaction into its containing week bucket
+        const ts = new Date(`${d}T00:00:00`).getTime();
+        for (let i = starts.length - 1; i >= 0; i--) {
+          if (starts[i] <= ts) {
+            idx = i;
+            break;
+          }
+        }
+      }
+      if (idx >= 0) values[idx] += parseFloat(t.amount || 0);
+    });
+
+    state.charts.catAnalysis = new Chart(canvas.getContext('2d'), {
+      type: 'bar',
+      data: {
+        labels,
+        datasets: [
+          {
+            label: 'Spent',
+            data: values,
+            backgroundColor: `${color}66`,
+            borderColor: color,
+            borderWidth: 1.5,
+            borderRadius: 4,
+          },
+        ],
+      },
+      options: {
+        responsive: true,
+        maintainAspectRatio: false,
+        plugins: {
+          legend: { display: false },
+          tooltip: {
+            backgroundColor: 'rgba(17,24,39,0.95)',
+            borderColor: 'rgba(255,255,255,0.1)',
+            borderWidth: 1,
+            titleColor: '#f8fafc',
+            bodyColor: '#94a3b8',
+            callbacks: { label: (ctx) => ` ${money(ctx.parsed.y)}` },
+          },
+        },
+        scales: {
+          x: { ticks: { color: '#94a3b8', maxRotation: 0, autoSkip: true, maxTicksLimit: 8 }, grid: { display: false } },
+          y: { beginAtZero: true, ticks: { color: '#94a3b8' }, grid: { color: 'rgba(255,255,255,0.06)' } },
+        },
+      },
+    });
+  }
+
+  function renderCatAccountSplit() {
+    const wrap = $('catAccountSplit');
+    if (!wrap) return;
+    const totals = new Map();
+    let grand = 0;
+    state.catAnalysis.txns.forEach((t) => {
+      const name = t.account_name || 'Cash';
+      totals.set(name, (totals.get(name) || 0) + parseFloat(t.amount || 0));
+      grand += parseFloat(t.amount || 0);
+    });
+    const rows = [...totals.entries()].sort((a, b) => b[1] - a[1]);
+    const palette = ['#3b82f6', '#10b981', '#f59e0b', '#8b5cf6', '#06b6d4', '#ef4444'];
+
+    if (rows.length === 0) {
+      wrap.innerHTML = `<div class="cat-split-empty">No account activity in this period.</div>`;
+      return;
+    }
+    const bar = rows
+      .map(
+        ([name, amt], i) =>
+          `<div style="width:${grand > 0 ? ((amt / grand) * 100).toFixed(2) : 0}%;background:${palette[i % palette.length]};" title="${escapeHtml(name)}"></div>`
+      )
+      .join('');
+    const legend = rows
+      .map(([name, amt], i) => {
+        const pct = grand > 0 ? ((amt / grand) * 100).toFixed(1) : 0;
+        return `<div class="cat-split-row">
+          <span class="cat-split-dot" style="background:${palette[i % palette.length]};"></span>
+          <span class="cat-split-name">${escapeHtml(name)}</span>
+          <strong>${pct}%</strong>
+          <span class="cat-split-amt">${money(amt)}</span>
+        </div>`;
+      })
+      .join('');
+    wrap.innerHTML = `<div class="cat-split-bar">${bar}</div>${legend}`;
+  }
+
+  function renderCatTable() {
+    const tbody = $('catAnalysisTableBody');
+    if (!tbody) return;
+    const { txns, sortKey, sortDir, search } = state.catAnalysis;
+    const q = search.trim().toLowerCase();
+    let rows = txns.filter((t) => {
+      if (!q) return true;
+      const hay = `${t.description || ''} ${t.notes || ''} ${t.account_name || ''}`.toLowerCase();
+      return hay.includes(q);
+    });
+
+    const dir = sortDir === 'asc' ? 1 : -1;
+    rows = rows.slice().sort((a, b) => {
+      if (sortKey === 'amount') return (parseFloat(a.amount || 0) - parseFloat(b.amount || 0)) * dir;
+      if (sortKey === 'account') return String(a.account_name || '').localeCompare(String(b.account_name || '')) * dir;
+      return (new Date(a.transaction_date) - new Date(b.transaction_date)) * dir;
+    });
+
+    document.querySelectorAll('#categoryAnalysisModal .cat-sortable').forEach((th) => {
+      const arrow = th.querySelector('.sort-arrow');
+      if (arrow) arrow.textContent = th.getAttribute('data-sort') === sortKey ? (sortDir === 'asc' ? '↑' : '↓') : '';
+    });
+    $('catTxnCount').textContent = String(rows.length);
+
+    tbody.innerHTML = '';
+    if (rows.length === 0) {
+      tbody.innerHTML = `<tr><td colspan="4"><div class="empty-state"><span data-icon="Receipt"></span><p style="font-size:13px;">${
+        q ? 'No transactions match your search.' : 'No transactions in this category for the selected period.'
+      }</p></div></td></tr>`;
+      hydrateIcons(tbody);
+      return;
+    }
+    rows.forEach((t) => {
+      const tr = document.createElement('tr');
+      tr.innerHTML = `
+        <td style="white-space:nowrap;">${dateOnly(t.transaction_date)}</td>
+        <td style="max-width:260px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">
+          ${escapeHtml(t.description)}
+          ${t.notes ? `<div style="color:var(--text-muted);font-size:11px;white-space:normal;">${escapeHtml(t.notes)}</div>` : ''}
+        </td>
+        <td style="color:var(--text-muted);font-size:13px;">${escapeHtml(t.account_name || 'Cash')}</td>
+        <td class="txn-amount-negative">−${money(t.amount)}</td>
+      `;
+      tbody.appendChild(tr);
+    });
+  }
+
+  const closeCatAnalysisBtn = $('closeCatAnalysisBtn');
+  if (closeCatAnalysisBtn) closeCatAnalysisBtn.addEventListener('click', closeCategoryAnalysis);
+
+  const catTxnSearchInput = $('catTxnSearch');
+  if (catTxnSearchInput) {
+    catTxnSearchInput.addEventListener('input', () => {
+      state.catAnalysis.search = catTxnSearchInput.value;
+      renderCatTable();
+    });
+  }
+
+  document.querySelectorAll('#categoryAnalysisModal .cat-sortable').forEach((th) => {
+    th.addEventListener('click', () => {
+      const key = th.getAttribute('data-sort');
+      if (state.catAnalysis.sortKey === key) {
+        state.catAnalysis.sortDir = state.catAnalysis.sortDir === 'asc' ? 'desc' : 'asc';
+      } else {
+        state.catAnalysis.sortKey = key;
+        state.catAnalysis.sortDir = key === 'amount' || key === 'date' ? 'desc' : 'asc';
+      }
+      renderCatTable();
+    });
+  });
+
+  const catOpenRecordsBtn = $('catOpenRecordsBtn');
+  if (catOpenRecordsBtn) {
+    catOpenRecordsBtn.addEventListener('click', () => {
+      const { categoryId, categoryName } = state.catAnalysis;
+      closeCategoryAnalysis();
+      openRecordsFilteredByCategory(categoryId, categoryName);
+    });
   }
 
   const copyPastBtn = $('copyPastBudgetsBtn');
