@@ -117,7 +117,8 @@ async function processCsvFile(userId, filePath, mode = 'merge') {
 
   const existingKeys = mode === 'replace' ? null : await existingTransactionKeys(userId);
 
-  // Resolve default account once (create Cash if needed)
+  // Resolve the fallback account once (create Cash if needed). Rows that name an
+  // ACCOUNT get their own account resolved below and bypass this one.
   let accountRes = await db.query('SELECT id FROM accounts WHERE user_id = $1 ORDER BY id LIMIT 1', [userId]);
   let accountId;
   if (accountRes.rows.length === 0) {
@@ -129,6 +130,34 @@ async function processCsvFile(userId, filePath, mode = 'merge') {
   } else {
     accountId = accountRes.rows[0].id;
   }
+
+  // Resolve (and lazily create) an account per distinct ACCOUNT column value so
+  // third-party exports spanning several cards / wallets are not collapsed onto
+  // a single account.
+  const accountCache = new Map();
+  const getAccountId = async (name) => {
+    const clean = String(name || '').trim();
+    if (!clean) return accountId;
+    const key = clean.toLowerCase();
+    if (accountCache.has(key)) return accountCache.get(key);
+
+    let res = await db.query('SELECT id FROM accounts WHERE user_id = $1 AND LOWER(name) = LOWER($2) LIMIT 1', [
+      userId,
+      clean,
+    ]);
+    let id;
+    if (res.rows.length > 0) {
+      id = res.rows[0].id;
+    } else {
+      const created = await db.query(
+        "INSERT INTO accounts (user_id, name, type, balance, icon_name, color_code) VALUES ($1, $2, 'Cash', 0.00, 'Wallet', '#3b82f6') RETURNING id",
+        [userId, clean]
+      );
+      id = created.rows[0].id;
+    }
+    accountCache.set(key, id);
+    return id;
+  };
 
   // Cache category id resolution for the batch
   const categoryCache = new Map();
@@ -171,11 +200,12 @@ async function processCsvFile(userId, filePath, mode = 'merge') {
       categoryId = await getCategoryId(classifierCategory);
     }
     const finalCategoryId = categoryId || (await getCategoryId('Uncategorized'));
+    const rowAccountId = await getAccountId(tx.account);
 
     rows.push({
       userId,
       categoryId: finalCategoryId,
-      accountId,
+      accountId: rowAccountId,
       date: tx.transaction_date,
       description: tx.description,
       amount: tx.amount,
@@ -208,12 +238,15 @@ async function processCsvFile(userId, filePath, mode = 'merge') {
     `;
     await db.query(query, [userIds, dbCategoryIds, accountIds, dates, descriptions, amounts, types, isDebits, sources]);
 
-    // Reflect the net balance change on the default account
-    await db.query('UPDATE accounts SET balance = balance + $1 WHERE id = $2 AND user_id = $3', [
-      netBalance,
-      accountId,
-      userId,
-    ]);
+    // Reflect the net balance change on every account touched by this import
+    const netByAccount = new Map();
+    for (const r of rows) {
+      const delta = r.isDebit ? -r.amount : r.amount;
+      netByAccount.set(r.accountId, (netByAccount.get(r.accountId) || 0) + Number(delta));
+    }
+    for (const [id, delta] of netByAccount) {
+      await db.query('UPDATE accounts SET balance = balance + $1 WHERE id = $2 AND user_id = $3', [delta, id, userId]);
+    }
   }
 
   await invalidateUserCache(userId);
