@@ -1,4 +1,7 @@
+// Load .env from the current working directory, and always from backend/.env
+// so credentials are found regardless of where the server is started from.
 require('dotenv').config();
+require('dotenv').config({ path: require('path').join(__dirname, '..', '.env') });
 
 function requireEnv(name) {
   const value = process.env[name];

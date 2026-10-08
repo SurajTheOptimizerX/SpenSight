@@ -65,6 +65,7 @@ document.addEventListener('DOMContentLoaded', () => {
   }
 
   function setLoading(loading) {
+    if (!submitBtn) return;
     submitBtn.disabled = loading;
     submitBtn.innerHTML = loading
       ? '<span data-icon="RefreshCw" style="width:16px;height:16px;animation:spin 1s linear infinite;"></span> Authenticating...'
@@ -76,50 +77,53 @@ document.addEventListener('DOMContentLoaded', () => {
     }
   }
 
-  if (!loginForm) return;
+  // ---------- Login ----------
+  if (loginForm) {
+    loginForm.addEventListener('submit', async (event) => {
+      event.preventDefault();
 
-  loginForm.addEventListener('submit', async (event) => {
-    event.preventDefault();
+      const emailVal = document.getElementById('email').value.trim();
+      const password = document.getElementById('password').value.trim();
 
-    const emailVal = document.getElementById('email').value.trim();
-    const password = document.getElementById('password').value.trim();
+      if (!emailVal || !password) {
+        showToast('Please fill in both email and password.');
+        return;
+      }
 
-    if (!emailVal || !password) {
-      showToast('Please fill in both email and password.');
-      return;
-    }
+      const rawAnswer = String((captchaAnswer && captchaAnswer.value) || '').trim();
+      if (rawAnswer === '' || parseInt(rawAnswer, 10) !== captchaResult) {
+        if (captchaError) captchaError.style.display = 'block';
+        generateCaptcha();
+        if (captchaAnswer) captchaAnswer.focus();
+        return;
+      }
 
-    const rawAnswer = String((captchaAnswer && captchaAnswer.value) || '').trim();
-    if (rawAnswer === '' || parseInt(rawAnswer, 10) !== captchaResult) {
-      if (captchaError) captchaError.style.display = 'block';
-      generateCaptcha();
-      if (captchaAnswer) captchaAnswer.focus();
-      return;
-    }
+      setLoading(true);
 
-    setLoading(true);
+      try {
+        // Sends both email and username so the backend controller receives its expected key
+        const data = await apiRequest(
+          '/auth/login',
+          'POST',
+          { email: emailVal, username: emailVal, password },
+          false
+        );
 
-    try {
-      // Sends both email and username so the backend controller receives its expected key
-      const data = await apiRequest(
-        '/auth/login',
-        'POST',
-        { email: emailVal, username: emailVal, password },
-        false
-      );
+        localStorage.setItem('spensight_token', data.token);
+        localStorage.setItem('spensight_user', JSON.stringify(data.user));
 
-      localStorage.setItem('spensight_token', data.token);
-      localStorage.setItem('spensight_user', JSON.stringify(data.user));
+        showToast('Login successful!', 'success');
+        setTimeout(() => {
+          window.location.href = 'dashboard.html';
+        }, 500);
+      } catch (error) {
+        showToast(error.message || 'Login failed. Please check your credentials.');
+      } finally {
+        setLoading(false);
+      }
+    });
+  }
 
-      showToast('Login successful!', 'success');
-      setTimeout(() => {
-        window.location.href = 'dashboard.html';
-      }, 500);
-    } catch (error) {
-      showToast(error.message || 'Login failed. Please check your credentials.');
-    } finally {
-      setLoading(false);
-    }
   // ---------- Forgot Password ----------
   const forgotLink = document.getElementById('forgotPasswordLink');
   const forgotModal = document.getElementById('forgotPasswordModal');
@@ -127,20 +131,79 @@ document.addEventListener('DOMContentLoaded', () => {
   const forgotForm = document.getElementById('forgotPasswordForm');
   const forgotEmailInput = document.getElementById('forgotEmail');
   const forgotFeedback = document.getElementById('forgotFeedback');
+  const forgotSubmitBtn = forgotForm ? forgotForm.querySelector('button[type="submit"]') : null;
+  let forgotCloseTimer = null;
+  let forgotCountdownTimer = null;
 
-  function openForgotModal() {
-    if (!forgotModal) return;
-    forgotModal.style.display = 'flex';
-    if (forgotEmailInput) forgotEmailInput.value = '';
+  const FEEDBACK_STYLES = {
+    success: {
+      color: '#86efac',
+      background: 'rgba(34, 197, 94, 0.15)',
+      border: '1px solid rgba(34, 197, 94, 0.3)',
+    },
+    neutral: {
+      color: 'var(--text-muted)',
+      background: 'rgba(148, 163, 184, 0.1)',
+      border: '1px solid rgba(148, 163, 184, 0.25)',
+    },
+    error: {
+      color: '#fca5a5',
+      background: 'rgba(239, 68, 68, 0.15)',
+      border: '1px solid rgba(239, 68, 68, 0.3)',
+    },
+  };
+
+  function setForgotFeedback(kind, message) {
+    if (!forgotFeedback) return;
+    const style = FEEDBACK_STYLES[kind] || FEEDBACK_STYLES.neutral;
+    forgotFeedback.style.display = 'block';
+    forgotFeedback.style.color = style.color;
+    forgotFeedback.style.background = style.background;
+    forgotFeedback.style.border = style.border;
+    forgotFeedback.style.borderRadius = '8px';
+    forgotFeedback.style.padding = '8px 10px';
+    forgotFeedback.style.wordBreak = 'break-word';
+    forgotFeedback.textContent = message;
+  }
+
+  function clearTimers() {
+    if (forgotCloseTimer) {
+      clearTimeout(forgotCloseTimer);
+      forgotCloseTimer = null;
+    }
+    if (forgotCountdownTimer) {
+      clearInterval(forgotCountdownTimer);
+      forgotCountdownTimer = null;
+    }
+  }
+
+  function resetForgotForm() {
+    clearTimers();
+    if (forgotEmailInput) {
+      forgotEmailInput.disabled = false;
+      forgotEmailInput.value = '';
+    }
+    if (forgotSubmitBtn) {
+      forgotSubmitBtn.disabled = false;
+      forgotSubmitBtn.textContent = 'Send reset link';
+    }
     if (forgotFeedback) {
       forgotFeedback.style.display = 'none';
       forgotFeedback.textContent = '';
     }
-    setTimeout(() => forgotEmailInput && forgotEmailInput.focus(), 50);
   }
 
   function closeForgotModal() {
+    clearTimers();
     if (forgotModal) forgotModal.style.display = 'none';
+    setTimeout(resetForgotForm, 200);
+  }
+
+  function openForgotModal() {
+    if (!forgotModal) return;
+    resetForgotForm();
+    forgotModal.style.display = 'flex';
+    setTimeout(() => forgotEmailInput && forgotEmailInput.focus(), 50);
   }
 
   if (forgotLink) {
@@ -157,27 +220,25 @@ document.addEventListener('DOMContentLoaded', () => {
       if (e.target === forgotModal) closeForgotModal();
     });
   }
+
   if (forgotForm) {
     forgotForm.addEventListener('submit', async (e) => {
       e.preventDefault();
       e.stopPropagation();
       if (!forgotEmailInput) return;
-      const rawValue = forgotEmailInput.value;
-      const email = String(rawValue || '').trim().toLowerCase();
+
+      const email = String(forgotEmailInput.value || '').trim().toLowerCase();
       if (!email) {
-        if (forgotFeedback) {
-          forgotFeedback.style.display = 'block';
-          forgotFeedback.style.color = '#fca5a5';
-          forgotFeedback.style.background = 'rgba(239, 68, 68, 0.1)';
-          forgotFeedback.textContent = 'Please enter your email.';
-        }
+        setForgotFeedback('error', 'Please enter your email.');
+        forgotEmailInput.focus();
         return;
       }
-      const submitBtn = forgotForm.querySelector('button[type="submit"]');
-      if (submitBtn) {
-        submitBtn.disabled = true;
-        submitBtn.textContent = 'Sending...';
+
+      if (forgotSubmitBtn) {
+        forgotSubmitBtn.disabled = true;
+        forgotSubmitBtn.textContent = 'Sending...';
       }
+
       try {
         const apiUrl =
           (typeof API_BASE_URL !== 'undefined'
@@ -188,32 +249,60 @@ document.addEventListener('DOMContentLoaded', () => {
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({ email }),
         });
-        const data = await response.json();
-        if (forgotFeedback) {
-          forgotFeedback.style.display = 'block';
-          forgotFeedback.style.color = '#86efac';
-          forgotFeedback.style.background = 'rgba(34, 197, 94, 0.1)';
-          forgotFeedback.textContent =
-            (data && data.message) || 'If an account exists, a reset link has been sent.';
+
+        let data = {};
+        try {
+          data = await response.json();
+        } catch (parseErr) {
+          data = {};
         }
-        setTimeout(() => closeForgotModal(), 3000);
+
+        if (response.ok && data.success) {
+          setForgotFeedback('success', data.message || 'Check your inbox! We sent a password reset link.');
+          forgotEmailInput.disabled = true;
+          if (forgotSubmitBtn) {
+            forgotSubmitBtn.textContent = 'Email Sent!';
+            forgotSubmitBtn.style.background = '#16a34a';
+            forgotSubmitBtn.style.borderColor = '#16a34a';
+          }
+
+          let remaining = 5;
+          forgotFeedback.textContent = `${forgotFeedback.textContent} Closing in ${remaining}s...`;
+          forgotCountdownTimer = setInterval(() => {
+            remaining -= 1;
+            if (remaining <= 0) {
+              clearInterval(forgotCountdownTimer);
+              forgotCountdownTimer = null;
+              return;
+            }
+            if (forgotFeedback) {
+              forgotFeedback.textContent = `${data.message || 'Check your inbox! We sent a password reset link.'} Closing in ${remaining}s...`;
+            }
+            if (forgotSubmitBtn && remaining <= 5) {
+              forgotSubmitBtn.textContent = `Email Sent! (${remaining}s)`;
+            }
+          }, 1000);
+          forgotCloseTimer = setTimeout(() => closeForgotModal(), 5000);
+          return;
+        }
+
+        if (response.ok) {
+          setForgotFeedback('neutral', data.message || 'If an account exists, a reset link has been sent.');
+          return;
+        }
+
+        setForgotFeedback('error', data.error || data.message || 'Failed to send the reset email. Please try again.');
       } catch (err) {
         console.error('Forgot password request failed:', err);
-        if (forgotFeedback) {
-          forgotFeedback.style.display = 'block';
-          forgotFeedback.style.color = '#fca5a5';
-          forgotFeedback.style.background = 'rgba(239, 68, 68, 0.1)';
-          forgotFeedback.textContent =
-            (err && err.message) || 'Something went wrong. Please try again.';
-        }
+        setForgotFeedback('error', (err && err.message) || 'Something went wrong. Please check your connection.');
       } finally {
-        if (submitBtn) {
-          submitBtn.disabled = false;
-          submitBtn.textContent = 'Send reset link';
+        if (forgotSubmitBtn && !forgotSubmitBtn.textContent.includes('Email Sent!')) {
+          forgotSubmitBtn.disabled = false;
+          forgotSubmitBtn.textContent = 'Send reset link';
+          forgotSubmitBtn.style.background = '';
+          forgotSubmitBtn.style.borderColor = '';
         }
       }
     });
   }
-});
-
 });

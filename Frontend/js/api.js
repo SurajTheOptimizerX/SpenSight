@@ -28,7 +28,7 @@ async function apiRequest(endpoint, method = 'GET', data = null, requiresAuth = 
     if (token) headers['Authorization'] = `Bearer ${token}`;
   }
 
-  const config = { method, headers };
+  const config = { method, headers, credentials: 'include' };
   if (data && ['POST', 'PUT', 'PATCH'].includes(method)) {
     config.body = JSON.stringify(data);
   }
@@ -71,6 +71,7 @@ async function apiUpload(endpoint, file, fileFieldName = 'file', extraFields = {
   const response = await fetch(`${API_BASE_URL}${endpoint}`, {
     method: 'POST',
     headers: token ? { Authorization: `Bearer ${token}` } : {},
+    credentials: 'include',
     body: form,
   });
 

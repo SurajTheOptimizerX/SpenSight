@@ -179,10 +179,12 @@ const forgotPassword = async (req, res) => {
     const successMessage = 'If an account exists, a reset link has been sent.';
 
     if (!normalizedEmail) {
-      return res.json({ message: successMessage });
+      return res.status(400).json({ success: false, error: 'Email is required.' });
     }
 
-    const result = await db.query('SELECT id FROM users WHERE email = $1', [normalizedEmail]);
+    console.log('[ForgotPassword] Request received for email:', normalizedEmail);
+    const result = await db.query('SELECT id, email FROM users WHERE LOWER(email) = LOWER($1)', [normalizedEmail]);
+    console.log('[ForgotPassword] User found:', result.rows.length > 0);
 
     if (result.rows.length > 0) {
       const userId = result.rows[0].id;
@@ -226,23 +228,34 @@ const forgotPassword = async (req, res) => {
             <p style="margin:20px 0 0; font-size:12px; color:#64748b;">The link expires in 15 minutes. If you did not request this, you can safely ignore this email.</p>
           </div>
         </div>`;
-        await transporter.sendMail({
+        const info = await transporter.sendMail({
           from: `"SpenSight Support" <${process.env.EMAIL_USER}>`,
           to: normalizedEmail,
           subject,
           text,
           html,
         });
-        console.log('[ForgotPassword:mail] Reset email sent successfully to', normalizedEmail);
+        console.log(
+          `[ForgotPassword:mail] SUCCESS: Reset email sent to ${normalizedEmail} (MessageID: ${info.messageId})`
+        );
+        return res.status(200).json({
+          success: true,
+          message:
+            'A password reset link has been sent to your email. Please check your inbox and spam folder.',
+        });
       } catch (mailError) {
-        console.error('[ForgotPassword:mail] Nodemailer error:', mailError.message || mailError);
+        console.error('[ForgotPassword:mail] FAILED to deliver to ' + normalizedEmail + ':', mailError);
+        return res.status(500).json({
+          success: false,
+          error: 'Failed to deliver reset email. Please try again later.',
+        });
       }
     }
 
-    return res.json({ message: successMessage });
+    return res.status(200).json({ success: false, message: successMessage });
   } catch (error) {
     console.error('Forgot Password Error:', error);
-    return res.json({ message: 'If an account exists, a reset link has been sent.' });
+    return res.status(500).json({ success: false, error: 'Something went wrong. Please try again later.' });
   }
 };
 
