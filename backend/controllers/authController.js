@@ -125,11 +125,13 @@ const login = async (req, res) => {
         error: 'Your email is not verified. Please check your inbox for the activation link.',
       });
     }
+    const token = jwt.sign({ id: user.id, email: user.email }, JWT_SECRET, { expiresIn: '7d' });
 
-    const token = jwt.sign({ id: user.id, email: user.email }, JWT_SECRET, { expiresIn: '24h' });
-    return res.json({
-      token,
-      user: { id: user.id, name: user.name, email: user.email },
+    res.cookie('token', token, {
+      httpOnly: true,
+      secure: process.env.NODE_ENV === 'production',
+      sameSite: process.env.NODE_ENV === 'production' ? 'none' : 'lax',
+      maxAge: 7 * 24 * 60 * 60 * 1000,
     });
   } catch (error) {
     console.error('Login Error Details:', error);
@@ -196,29 +198,23 @@ const forgotPassword = async (req, res) => {
       );
 
       try {
-        const mailSettingsService = require('../services/mailSettingsService');
-        const { sendMail } = require('../services/mailService');
-        const settings = await mailSettingsService.getEffectiveSettings();
-        const appName = settings.appName || 'SpenSight';
-        const baseUrl = (settings.verifyPageUrl || 'https://spensight.netlify.app').replace(/\/+$/, '');
+        const baseUrl = 'https://spensight.netlify.app';
         const resetUrl = `${baseUrl}/reset-password.html?token=${encodeURIComponent(plainToken)}`;
-        const subject = `${appName} — Password Reset Request`;
-
+        const subject = 'SpenSight — Password Reset Request';
         const text = [
           'Hi,',
           '',
-          `We received a request to reset your ${appName} password.`,
+          'We received a request to reset your SpenSight password.',
           'Please use the link below to set a new password (valid for 15 minutes):',
           '',
           resetUrl,
           '',
           'If you did not request this, you can safely ignore this email.',
         ].join('\n');
-
         const html = `
         <div style="font-family: Arial, Helvetica, sans-serif; background:#0b1220; padding:24px; color:#e2e8f0;">
           <div style="max-width:480px; margin:0 auto; background:#111827; border:1px solid rgba(255,255,255,0.08); border-radius:14px; padding:28px;">
-            <h1 style="margin:0 0 6px; font-size:20px; color:#ffffff;">${appName}</h1>
+            <h1 style="margin:0 0 6px; font-size:20px; color:#ffffff;">SpenSight</h1>
             <p style="margin:0 0 18px; font-size:14px; color:#94a3b8;">Reset your password in just a few clicks.</p>
             <a href="${resetUrl}"
                style="display:inline-block; background:#3b82f6; color:#ffffff; text-decoration:none; font-weight:700; font-size:14px; padding:12px 22px; border-radius:10px;">
@@ -230,10 +226,16 @@ const forgotPassword = async (req, res) => {
             <p style="margin:20px 0 0; font-size:12px; color:#64748b;">The link expires in 15 minutes. If you did not request this, you can safely ignore this email.</p>
           </div>
         </div>`;
-
-        await sendMail({ to: normalizedEmail, subject, text, html });
+        await transporter.sendMail({
+          from: `"SpenSight Support" <${process.env.EMAIL_USER}>`,
+          to: normalizedEmail,
+          subject,
+          text,
+          html,
+        });
+        console.log('[ForgotPassword:mail] Reset email sent successfully to', normalizedEmail);
       } catch (mailError) {
-        console.error('[ForgotPassword:mail] Failed to send reset email:', mailError && mailError.message);
+        console.error('[ForgotPassword:mail] Nodemailer error:', mailError.message || mailError);
       }
     }
 
