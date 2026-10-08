@@ -45,7 +45,7 @@
           </div>
         </div>
 
-        <p style="font-size: 12px; color: var(--text-muted)">© 2026 SpenSight. All rights reserved.</p>
+        <p style="font-size: 12px; color: var(--text-muted)">&copy; 2026 SpenSight. All rights reserved.</p>
       </div>
 
       <div>
@@ -87,9 +87,10 @@
             </div>
 
             <div style="margin-bottom: 20px">
-              <label style="display: block; font-size: 13px; font-weight: 600; margin-bottom: 6px"
-                >Password / Passcode</label
-              >
+              <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 6px;">
+                <label style="font-size: 13px; font-weight: 600">Password / Passcode</label>
+                <a href="javascript:void(0)" id="forgotPasswordLink" style="color: #60a5fa; text-decoration: none; font-size: 12px; font-weight: 600; cursor: pointer;">Forgot password?</a>
+              </div>
               <div style="position: relative">
                 <span
                   data-icon="Lock"
@@ -136,13 +137,8 @@
                   "
                   >42 + 19 = ?</span
                 >
-            <div style="display: flex; justify-content: flex-end; margin-bottom: 16px">
-              <a href="#" id="forgotPasswordLink" style="color: #60a5fa; text-decoration: none; font-size: 13px; font-weight: 600"
-                >Forgot password?</a
-              >
-            </div>
 
-            <button
+                <button
                   type="button"
                   id="captchaRefresh"
                   title="New problem"
@@ -214,6 +210,7 @@
       </div>
     </div>
 
+    <!-- Forgot Password Modal -->
     <div id="forgotPasswordModal" style="display:none; position:fixed; inset:0; background:rgba(0,0,0,0.6); z-index:1000; align-items:center; justify-content:center;">
       <div style="background:linear-gradient(135deg,#0f172a,#1e293b); border:1px solid rgba(255,255,255,0.08); border-radius:14px; max-width:420px; width:90%; color:var(--text-white); box-shadow:0 25px 50px rgba(2,6,23,0.6);">
         <div style="padding:22px 24px; border-bottom:1px solid rgba(255,255,255,0.08); display:flex; align-items:center; justify-content:space-between;">
@@ -223,7 +220,7 @@
         <div style="padding:22px 24px;">
           <p style="margin:0 0 14px; color:var(--text-muted); font-size:13px;">Enter your account email and we'll send you a reset link.</p>
           <form id="forgotPasswordForm" novalidate>
-            <input type="email" id="forgotEmail" class="input-field" placeholder="Enter your email" autocomplete="email" required style="margin-bottom:14px;" />
+            <input type="email" id="forgotEmail" class="input-field" placeholder="Enter your email" autocomplete="email" required style="margin-bottom:14px; width: 100%; box-sizing: border-box;" />
             <button type="submit" class="btn-primary" style="width:100%;">Send reset link</button>
           </form>
           <p id="forgotFeedback" style="margin-top:12px; font-size:12px; color:var(--text-muted); display:none;"></p>
