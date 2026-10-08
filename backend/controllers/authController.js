@@ -3,8 +3,7 @@ const db = require('../config/db');
 const bcrypt = require('bcryptjs');
 const jwt = require('jsonwebtoken');
 const { JWT_SECRET } = require('../config/env');
-const { sendVerificationEmail } = require('../services/mailService');
-const { transporter } = require('../utils/mailer');
+const { sendVerificationEmail, sendResetEmail } = require('../services/mailService');
 
 const VERIFY_TOKEN_HOURS = 24;
 const EMAIL_VERIFICATION_ENABLED = process.env.EMAIL_VERIFICATION_ENABLED === 'true';
@@ -187,7 +186,6 @@ const forgotPassword = async (req, res) => {
   try {
     const { email } = req.body || {};
     const normalizedEmail = String(email || '').trim().toLowerCase();
-    const successMessage = 'If an account exists, a reset link has been sent.';
 
     if (!normalizedEmail) {
       return res.status(400).json({ success: false, error: 'Email is required.' });
@@ -211,59 +209,24 @@ const forgotPassword = async (req, res) => {
       );
 
       try {
-        const baseUrl = 'https://spensight.netlify.app';
-        const resetUrl = `${baseUrl}/reset-password.html?token=${encodeURIComponent(plainToken)}`;
-        const subject = 'SpenSight — Password Reset Request';
-        const text = [
-          'Hi,',
-          '',
-          'We received a request to reset your SpenSight password.',
-          'Please use the link below to set a new password (valid for 15 minutes):',
-          '',
-          resetUrl,
-          '',
-          'If you did not request this, you can safely ignore this email.',
-        ].join('\n');
-        const html = `
-        <div style="font-family: Arial, Helvetica, sans-serif; background:#0b1220; padding:24px; color:#e2e8f0;">
-          <div style="max-width:480px; margin:0 auto; background:#111827; border:1px solid rgba(255,255,255,0.08); border-radius:14px; padding:28px;">
-            <h1 style="margin:0 0 6px; font-size:20px; color:#ffffff;">SpenSight</h1>
-            <p style="margin:0 0 18px; font-size:14px; color:#94a3b8;">Reset your password in just a few clicks.</p>
-            <a href="${resetUrl}"
-               style="display:inline-block; background:#3b82f6; color:#ffffff; text-decoration:none; font-weight:700; font-size:14px; padding:12px 22px; border-radius:10px;">
-              Reset Password
-            </a>
-            <p style="margin:20px 0 0; font-size:13px; color:#94a3b8; word-break:break-all;">
-              Or copy this link into your browser:<br/><a href="${resetUrl}" style="color:#60a5fa;">${resetUrl}</a>
-            </p>
-            <p style="margin:20px 0 0; font-size:12px; color:#64748b;">The link expires in 15 minutes. If you did not request this, you can safely ignore this email.</p>
-          </div>
-        </div>`;
-        const info = await transporter.sendMail({
-          from: `"SpenSight Support" <${process.env.EMAIL_USER}>`,
-          to: normalizedEmail,
-          subject,
-          text,
-          html,
-        });
+        const resetUrl = `https://spensight.netlify.app/reset-password.html?token=${encodeURIComponent(plainToken)}`;
+        const info = await sendResetEmail({ to: normalizedEmail, resetUrl });
         console.log(
-          `[ForgotPassword:mail] SUCCESS: Reset email sent to ${normalizedEmail} (MessageID: ${info.messageId})`
+          `[ForgotPassword:mail] SUCCESS: Dispatched over HTTPS via Resend to ${normalizedEmail} (ID: ${info?.id})`
         );
-        return res.status(200).json({
-          success: true,
-          message:
-            'A password reset link has been sent to your email. Please check your inbox and spam folder.',
-        });
       } catch (mailError) {
-        console.error('[ForgotPassword:mail] FAILED to deliver to ' + normalizedEmail + ':', mailError);
+        console.error('[ForgotPassword:mail] Resend delivery error:', mailError.message || mailError);
         return res.status(500).json({
           success: false,
-          error: 'Failed to deliver reset email. Please try again later.',
+          error: 'Failed to deliver reset email. ' + (mailError.message || ''),
         });
       }
     }
 
-    return res.status(200).json({ success: false, message: successMessage });
+    return res.status(200).json({
+      success: true,
+      message: 'If an account exists with this email, a password reset link has been sent.',
+    });
   } catch (error) {
     console.error('Forgot Password Error:', error);
     return res.status(500).json({ success: false, error: 'Something went wrong. Please try again later.' });

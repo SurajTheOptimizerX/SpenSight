@@ -1,5 +1,18 @@
 const nodemailer = require('nodemailer');
+const { Resend } = require('resend');
 const mailSettingsService = require('./mailSettingsService');
+
+// HTTPS email dispatch via the Resend API (port 443) — avoids the outbound
+// SMTP sockets that time out on Render. Constructed lazily because the SDK
+// throws from its constructor when RESEND_API_KEY is absent, which would
+// otherwise prevent this module (and the server) from loading in dev.
+let resend = null;
+function getResend() {
+  if (!resend) {
+    resend = new Resend(process.env.RESEND_API_KEY);
+  }
+  return resend;
+}
 
 // Outbound mail wrapper for email verification. When RESEND_API_KEY is set,
 // sends via the Resend SDK (mailSettingsService.sendMail). Otherwise falls
@@ -105,10 +118,57 @@ async function sendVerificationEmail({ to, token }) {
   }
 }
 
+// Password-reset dispatch over the Resend HTTPS API. Throws on any API or
+// transport failure so callers can surface the reason to the user.
+async function sendResetEmail({ to, resetUrl }) {
+  const subject = 'SpenSight — Password Reset Request';
+  const text = [
+    'Hi,',
+    '',
+    'We received a request to reset your SpenSight password.',
+    'Please open the link below to set a new password (valid for 15 minutes):',
+    '',
+    resetUrl,
+    '',
+    'If you did not request this, you can safely ignore this email.',
+  ].join('\n');
+  const html = `
+  <div style="font-family: Arial, Helvetica, sans-serif; background:#0b1220; padding:24px; color:#e2e8f0;">
+    <div style="max-width:480px; margin:0 auto; background:#111827; border:1px solid rgba(255,255,255,0.08); border-radius:14px; padding:28px;">
+      <h1 style="margin:0 0 6px; font-size:20px; color:#ffffff;">SpenSight</h1>
+      <p style="margin:0 0 18px; font-size:14px; color:#94a3b8;">Reset your password in just a few clicks.</p>
+      <p style="margin:0 0 20px; font-size:14px; color:#e2e8f0;">
+        We received a request to reset the password for this email address. The link below is valid for 15 minutes.
+      </p>
+      <p style="margin:0 0 20px;">
+        <a href="${resetUrl}"
+           style="display:inline-block; background:#3b82f6; color:#ffffff; text-decoration:none; font-weight:700; font-size:14px; padding:14px 26px; border-radius:10px;">
+          Reset Password
+        </a>
+      </p>
+      <p style="margin:20px 0 0; font-size:13px; color:#94a3b8; word-break:break-all;">
+        Or copy this link into your browser:<br/><a href="${resetUrl}" style="color:#60a5fa;">${resetUrl}</a>
+      </p>
+      <p style="margin:20px 0 0; font-size:12px; color:#64748b;">The link expires in 15 minutes. If you did not request this, you can safely ignore this email.</p>
+    </div>
+  </div>`;
+
+  const { data, error } = await getResend().emails.send({
+    from: 'SpenSight <onboarding@resend.dev>',
+    to: [to],
+    subject,
+    text,
+    html,
+  });
+  if (error) throw new Error(error.message || JSON.stringify(error));
+  return data;
+}
+
 // Keep the exported name working for consumers: accepts { to, token } now
 // (URL is derived from effective settings).
 module.exports = {
   sendVerificationEmail,
+  sendResetEmail,
   sendMail,
   smtpConfigured: (settings) => mailSettingsService.smtpConfigured(settings),
   resetTransporter,
