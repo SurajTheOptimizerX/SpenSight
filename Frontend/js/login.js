@@ -100,14 +100,32 @@ document.addEventListener('DOMContentLoaded', () => {
 
       setLoading(true);
 
+      const controller = new AbortController();
+      const timeoutId = setTimeout(() => controller.abort(), 15000);
+
       try {
-        // Sends both email and username so the backend controller receives its expected key
-        const data = await apiRequest(
-          '/auth/login',
-          'POST',
-          { email: emailVal, username: emailVal, password },
-          false
-        );
+        const apiUrl =
+          (typeof API_BASE_URL !== 'undefined'
+            ? API_BASE_URL
+            : 'https://spensight.onrender.com/api') + '/auth/login';
+
+        const response = await fetch(apiUrl, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          credentials: 'include',
+          body: JSON.stringify({ email: emailVal, username: emailVal, password }),
+          signal: controller.signal,
+        });
+
+        const data = await response.json().catch(() => ({}));
+
+        if (!response.ok) {
+          throw new Error(data.error || data.message || 'Login failed. Please check your credentials.');
+        }
+
+        if (!data.token || !data.user) {
+          throw new Error('Unexpected server response. Please try again.');
+        }
 
         localStorage.setItem('spensight_token', data.token);
         localStorage.setItem('spensight_user', JSON.stringify(data.user));
@@ -117,8 +135,13 @@ document.addEventListener('DOMContentLoaded', () => {
           window.location.href = 'dashboard.html';
         }, 500);
       } catch (error) {
-        showToast(error.message || 'Login failed. Please check your credentials.');
+        if (error && error.name === 'AbortError') {
+          showToast('Request timed out. Please check your connection and try again.');
+        } else {
+          showToast(error.message || 'Login failed. Please check your credentials.');
+        }
       } finally {
+        clearTimeout(timeoutId);
         setLoading(false);
       }
     });

@@ -133,6 +133,17 @@ const login = async (req, res) => {
       sameSite: process.env.NODE_ENV === 'production' ? 'none' : 'lax',
       maxAge: 7 * 24 * 60 * 60 * 1000,
     });
+
+    return res.status(200).json({
+      token,
+      user: {
+        id: user.id,
+        name: user.name,
+        email: user.email,
+        monthly_income: user.monthly_income,
+        is_verified: user.is_verified,
+      },
+    });
   } catch (error) {
     console.error('Login Error Details:', error);
     return res.status(500).json({ error: 'Login failed.' });
