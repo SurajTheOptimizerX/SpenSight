@@ -18,12 +18,15 @@
     "ioredis": "^5.3.2",
     "jsonwebtoken": "^9.0.2",
     "multer": "^1.4.5-lts.1",
-    "nodemailer": "^9.0.5",
+    "nodemailer": "^9.1.1",
     "openai": "^4.33.0",
     "pg": "^8.11.3",
     "resend": "^6.20.0"
   },
   "devDependencies": {
     "eslint": "^8.57.0"
+  },
+  "allowScripts": {
+    "msgpackr-extract@3.0.4": true
   }
 }

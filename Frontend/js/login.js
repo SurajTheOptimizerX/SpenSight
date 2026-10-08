@@ -120,5 +120,83 @@ document.addEventListener('DOMContentLoaded', () => {
     } finally {
       setLoading(false);
     }
-  });
+  // ---------- Forgot Password ----------
+  const forgotLink = document.getElementById('forgotPasswordLink');
+  const forgotModal = document.getElementById('forgotPasswordModal');
+  const forgotModalClose = document.getElementById('forgotModalClose');
+  const forgotForm = document.getElementById('forgotPasswordForm');
+  const forgotEmailInput = document.getElementById('forgotEmail');
+  const forgotFeedback = document.getElementById('forgotFeedback');
+
+  function openForgotModal() {
+    if (!forgotModal) return;
+    forgotModal.style.display = 'flex';
+    if (forgotEmailInput) forgotEmailInput.value = '';
+    if (forgotFeedback) {
+      forgotFeedback.style.display = 'none';
+      forgotFeedback.textContent = '';
+    }
+    setTimeout(() => forgotEmailInput && forgotEmailInput.focus(), 50);
+  }
+
+  function closeForgotModal() {
+    if (forgotModal) forgotModal.style.display = 'none';
+  }
+
+  if (forgotLink) {
+    forgotLink.addEventListener('click', (e) => {
+      e.preventDefault();
+      openForgotModal();
+    });
+  }
+  if (forgotModalClose) {
+    forgotModalClose.addEventListener('click', closeForgotModal);
+  }
+  if (forgotModal) {
+    forgotModal.addEventListener('click', (e) => {
+      if (e.target === forgotModal) closeForgotModal();
+    });
+  }
+  if (forgotForm) {
+    forgotForm.addEventListener('submit', async (e) => {
+      e.preventDefault();
+      if (!forgotEmailInput) return;
+      const email = forgotEmailInput.value.trim().toLowerCase();
+      if (!email) {
+        if (forgotFeedback) {
+          forgotFeedback.style.display = 'block';
+          forgotFeedback.style.color = '#fca5a5';
+          forgotFeedback.textContent = 'Please enter your email.';
+        }
+        return;
+      }
+      const submitBtn = forgotForm.querySelector('button[type="submit"]');
+      if (submitBtn) {
+        submitBtn.disabled = true;
+        submitBtn.textContent = 'Sending...';
+      }
+      try {
+        const res = await apiRequest('/auth/forgot-password', 'POST', { email }, false);
+        if (forgotFeedback) {
+          forgotFeedback.style.display = 'block';
+          forgotFeedback.style.color = '#86efac';
+          forgotFeedback.textContent = res.message || 'If an account exists, a reset link has been sent.';
+        }
+        setTimeout(() => closeForgotModal(), 1800);
+      } catch (err) {
+        if (forgotFeedback) {
+          forgotFeedback.style.display = 'block';
+          forgotFeedback.style.color = '#fca5a5';
+          forgotFeedback.textContent = err.message || 'Something went wrong. Please try again.';
+        }
+      } finally {
+        if (submitBtn) {
+          submitBtn.disabled = false;
+          submitBtn.textContent = 'Send reset link';
+        }
+      }
+    });
+  }
+});
+
 });

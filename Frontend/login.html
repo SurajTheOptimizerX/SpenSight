@@ -136,7 +136,13 @@
                   "
                   >42 + 19 = ?</span
                 >
-                <button
+            <div style="display: flex; justify-content: flex-end; margin-bottom: 16px">
+              <a href="#" id="forgotPasswordLink" style="color: #60a5fa; text-decoration: none; font-size: 13px; font-weight: 600"
+                >Forgot password?</a
+              >
+            </div>
+
+            <button
                   type="button"
                   id="captchaRefresh"
                   title="New problem"
@@ -204,6 +210,23 @@
               >Create account</a
             >
           </div>
+        </div>
+      </div>
+    </div>
+
+    <div id="forgotPasswordModal" style="display:none; position:fixed; inset:0; background:rgba(0,0,0,0.6); z-index:1000; align-items:center; justify-content:center;">
+      <div style="background:linear-gradient(135deg,#0f172a,#1e293b); border:1px solid rgba(255,255,255,0.08); border-radius:14px; max-width:420px; width:90%; color:var(--text-white); box-shadow:0 25px 50px rgba(2,6,23,0.6);">
+        <div style="padding:22px 24px; border-bottom:1px solid rgba(255,255,255,0.08); display:flex; align-items:center; justify-content:space-between;">
+          <h3 style="margin:0; font-size:16px; font-weight:700;">Reset your password</h3>
+          <button type="button" id="forgotModalClose" style="background:transparent; border:none; color:var(--text-muted); cursor:pointer; font-size:18px;">&times;</button>
+        </div>
+        <div style="padding:22px 24px;">
+          <p style="margin:0 0 14px; color:var(--text-muted); font-size:13px;">Enter your account email and we'll send you a reset link.</p>
+          <form id="forgotPasswordForm" novalidate>
+            <input type="email" id="forgotEmail" class="input-field" placeholder="Enter your email" autocomplete="email" required style="margin-bottom:14px;" />
+            <button type="submit" class="btn-primary" style="width:100%;">Send reset link</button>
+          </form>
+          <p id="forgotFeedback" style="margin-top:12px; font-size:12px; color:var(--text-muted); display:none;"></p>
         </div>
       </div>
     </div>

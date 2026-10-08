@@ -24,4 +24,7 @@ router.post('/register', authLimiter, authController.register);
 router.post('/login', strictLimiter, authController.login);
 router.get('/verify', authLimiter, authController.verifyEmail);
 
+router.post('/forgot-password', authLimiter, authController.forgotPassword);
+router.post('/reset-password', authLimiter, authController.resetPassword);
+
 module.exports = router;
