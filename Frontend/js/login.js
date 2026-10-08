@@ -160,12 +160,15 @@ document.addEventListener('DOMContentLoaded', () => {
   if (forgotForm) {
     forgotForm.addEventListener('submit', async (e) => {
       e.preventDefault();
+      e.stopPropagation();
       if (!forgotEmailInput) return;
-      const email = forgotEmailInput.value.trim().toLowerCase();
+      const rawValue = forgotEmailInput.value;
+      const email = String(rawValue || '').trim().toLowerCase();
       if (!email) {
         if (forgotFeedback) {
           forgotFeedback.style.display = 'block';
           forgotFeedback.style.color = '#fca5a5';
+          forgotFeedback.style.background = 'rgba(239, 68, 68, 0.1)';
           forgotFeedback.textContent = 'Please enter your email.';
         }
         return;
@@ -176,18 +179,32 @@ document.addEventListener('DOMContentLoaded', () => {
         submitBtn.textContent = 'Sending...';
       }
       try {
-        const res = await apiRequest('/auth/forgot-password', 'POST', { email }, false);
+        const apiUrl =
+          (typeof API_BASE_URL !== 'undefined'
+            ? API_BASE_URL
+            : 'https://spensight.onrender.com/api') + '/auth/forgot-password';
+        const response = await fetch(apiUrl, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ email }),
+        });
+        const data = await response.json();
         if (forgotFeedback) {
           forgotFeedback.style.display = 'block';
           forgotFeedback.style.color = '#86efac';
-          forgotFeedback.textContent = res.message || 'If an account exists, a reset link has been sent.';
+          forgotFeedback.style.background = 'rgba(34, 197, 94, 0.1)';
+          forgotFeedback.textContent =
+            (data && data.message) || 'If an account exists, a reset link has been sent.';
         }
-        setTimeout(() => closeForgotModal(), 1800);
+        setTimeout(() => closeForgotModal(), 3000);
       } catch (err) {
+        console.error('Forgot password request failed:', err);
         if (forgotFeedback) {
           forgotFeedback.style.display = 'block';
           forgotFeedback.style.color = '#fca5a5';
-          forgotFeedback.textContent = err.message || 'Something went wrong. Please try again.';
+          forgotFeedback.style.background = 'rgba(239, 68, 68, 0.1)';
+          forgotFeedback.textContent =
+            (err && err.message) || 'Something went wrong. Please try again.';
         }
       } finally {
         if (submitBtn) {
